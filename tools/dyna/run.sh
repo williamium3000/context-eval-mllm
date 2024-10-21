@@ -18,5 +18,5 @@ export CUDA_VISIBLE_DEVICES=0
 # python visualize.py output/dyna_bad_examples/coverage_model_perspective.json visualization/dyna_bad_examples/coverage_model_perspective --anno 
 
 
-python examiners/dyna_conv_json.py --debug --use_json_mode --p_mode coverage_certainty_with_answer_start_with_desc --outfile output/dyna_bad_examples/coverage_certainty_with_answer_start_with_desc_json_mode.json
+python examiners/dyna_conv_icl.py --debug --p_mode CONV_MODEL_PERSPECTIVE_PROMPT_VG_SIMGPLE2_wo_BAD --outfile output/vg/dyna/icl.json
 # python visualize.py output/dyna_bad_examples/coverage_certainty_with_answer_json_mode.json visualization/dyna_bad_examples/coverage_certainty_with_answer_json_mode --anno 

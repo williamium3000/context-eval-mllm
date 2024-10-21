@@ -97,8 +97,9 @@ def eval_model(model_name, tokenizer, model, image_processor, context_len, args)
     conv.append_message(conv.roles[1], None)
     prompt = conv.get_prompt()
 
-    image_files = image_parser(args)
-    images = load_images(image_files)
+    # image_files = image_parser(args)
+    # images = load_images(image_files)
+    images = [args.image_file.convert("RGB")]
     image_sizes = [x.size for x in images]
     images_tensor = process_images(
         images,

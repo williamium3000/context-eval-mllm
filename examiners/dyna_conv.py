@@ -1,6 +1,6 @@
-from utils.coco import load_coco2017, format_case_coco
-from utils.utils import call_chatgpt
-from examiners.prompt import PROMPTS
+from utils.vg import load_vg, format_case_vg
+from utils.llm import LLMChat, parse_json
+from examiners import prompt as PROMPT
 from infer.infer_llava import load_model, eval_model
 import os
 import argparse
@@ -8,9 +8,9 @@ import json
 import tqdm
 import copy
 
-def dyna_conv(args, case):
-    template = PROMPTS[args.p_mode]
-    prompt = template.format(format_case_coco(case))
+def dyna_conv(args, case, llm_chat):
+    template = PROMPT.__dict__[args.p_mode]
+    prompt = template.format(format_case_vg(case))
     conversations = [
                     {"role": "system", "content": "You are a helpful AI visual assistant that can analyze a single image and capable of having a conversation with a human."},
                     {"role": "user", "content": prompt}
@@ -19,13 +19,13 @@ def dyna_conv(args, case):
     to_save = []
     r = 0
     while True:
-        message_evaluator = call_chatgpt(conversations)
+        message_evaluator = llm_chat.chat(conversations, None)
         
         if "END" in message_evaluator:
             break
         
         conversations.append({"role": "assistant", "content": message_evaluator})
-        image_file = os.path.join("data/coco/val2017", case["file_name"])
+        image_file = case["image"]
         output = eval_model(model_name, tokenizer, model, image_processor, context_len, type('Args', (), {
                                 "model_path": model_path,
                                 "model_base": None,
@@ -42,6 +42,9 @@ def dyna_conv(args, case):
                                 "max_new_tokens": 512
                             })())
         output = output.lower()
+        
+        print(f"assistant: {message_evaluator}")
+        print(f"user: {output}")
         conversations.append({"role": "user", "content": output})
         r += 1
         to_save.append(
@@ -63,13 +66,15 @@ if __name__ == "__main__":
     # need to figure out how to eval on different models
     model_name, tokenizer, model, image_processor, context_len = load_model(args.model_path, args.model_base)
     model_path = args.model_path
-    samples = load_coco2017(args.debug)
+    samples = load_vg(args.debug)
+    
+    llm_chat = LLMChat(model_name="gpt-4o")
     
     print("starting conversation with model...")
     for sample in tqdm.tqdm(samples):
-        conv = dyna_conv(args, sample)
+        conv = dyna_conv(args, sample, llm_chat)
         sample["conversations"] = conv
-    
+        del sample["image"]
     
     with open(args.outfile, "w") as f:
         json.dump(samples, f, indent=4)

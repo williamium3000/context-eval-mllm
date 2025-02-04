@@ -1,23 +1,7 @@
 from nltk.corpus import wordnet as wn
 import json
 import re
-
-
-def print_tree(node, level=-1):
-    print_str = ' '.join(node['name'].split('.')[0].split('_'))
-
-    indent = "  " * level + '-'
-    print(f"{indent}{' '.join(node['name'].split('.')[0].split('_'))}")
-
-    # for child in node.get("children", []):
-    #     print_str += ', ' + print_tree(child, level + 1)
-    #
-    # if level == 0:
-    #     print(level)
-    #     if len(print_str.split(','))>1:
-    #         print('1')
-
-    return print_str
+import nltk
 
 
 def get_object_map(object_file_path='object_synsets.json'):
@@ -97,7 +81,7 @@ def is_vg_object(tree, response_word, gt_word):
 def sentence_to_words(object_dict, sentence):
     object_pattern = r'\b(' + '|'.join(map(re.escape, object_dict.keys())) + r')\b'
     object_matches = re.findall(object_pattern, sentence)
-    match_result = {match: object_dict[match] for match in object_matches}
+    match_result = [(match, object_dict[match]) for match in object_matches]
     return match_result
 
 
@@ -105,17 +89,14 @@ if __name__ == '__main__':
     object_dict = get_object_map(object_file_path='object_synsets.json')
     relationship_tree = construct_relationship_tree(object_dict)
 
-    # with open('class_tree_synset.json', 'w') as tree_file:
-    #     json.dump(tree, tree_file, indent=2)
-    # word_count = print_tree(tree)
-
-    test_sentence = 'I have a candy.'
+    test_sentence = 'I have a candy. the candy is so good. The candy is given by my dad.'
     gt_sentence = 'I have confections.'
 
     test_synset_match_result = sentence_to_words(object_dict, test_sentence)
+    print(test_synset_match_result)
     gt_synset_match_result = sentence_to_words(object_dict, gt_sentence)
 
-    for gt_object, gt_object_class in gt_synset_match_result.items():
-        for test_object, test_object_class in test_synset_match_result.items():
+    for gt_object, gt_object_class in gt_synset_match_result:
+        for test_object, test_object_class in test_synset_match_result:
             print(test_object_class, gt_object_class)
             print(is_vg_object(relationship_tree, test_object_class, gt_object_class))

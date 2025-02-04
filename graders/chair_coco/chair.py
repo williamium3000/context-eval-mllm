@@ -211,7 +211,8 @@ class CHAIR(object):
             "mscoco_hallucinated_words": [],
             "object_in_gts": [],
             "gt_objects": [],
-            "coverage": []} 
+            "coverage": []
+        } 
     
         for i, cap_eval in enumerate(caps):
     

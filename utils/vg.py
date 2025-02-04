@@ -1,9 +1,10 @@
 from datasets import load_dataset
 import tqdm
-# Create a download configuration with resume_download set to True
+import fsspec
+import aiohttp
 
 # Load the dataset with the specified download configuration
-objects = load_dataset("visual_genome","objects_v1.2.0", split="train")
+objects = load_dataset("visual_genome","objects_v1.2.0", split="train", storage_options={'client_kwargs': {'timeout': aiohttp.ClientTimeout(total=7200)}})
 attributes = load_dataset("visual_genome","attributes_v1.2.0", split="train")
 relationships = load_dataset("visual_genome","relationships_v1.2.0", split="train")
 regions = load_dataset("visual_genome","region_descriptions_v1.2.0", split="train")

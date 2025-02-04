@@ -1,43 +1,41 @@
-from wordhoard import Synonyms
+import vllm
+from vllm import LLM
+import PIL.Image
 
-# Download WordNet data if not already downloaded
-# nltk.download('wordnet')
+llm = LLM(model="llava-hf/llava-1.5-7b-hf")
 
+# Refer to the HuggingFace repo for the correct format to use
+prompt = "USER: <image>\nWhat is the content of this image?\nASSISTANT:"
 
-from wordhoard import Hypernyms
+# Load the image using PIL.Image
+image = PIL.Image.open("252219.png")
 
-hypernym = Hypernyms(search_string='train')
-hypernym_results = hypernym.find_hypernyms()
-print("locomotive" in hypernym_results)
+# Single prompt inference
+outputs = llm.generate({
+    "prompt": prompt,
+    "multi_modal_data": {"image": image},
+})
 
-synonym = Synonyms(search_string='locomotive')
-synonym_results = synonym.find_synonyms()
-print("train" in synonym_results)
+for o in outputs:
+    generated_text = o.outputs[0].text
+    print(generated_text)
 
-# def are_synonyms(word1, word2):
-#     # Get the synsets for each word
-#     synsets_word1 = wn.synsets(word1)
-#     synsets_word2 = wn.synsets(word2)
-    
-#     # Check if there is any intersection between the synsets of both words
-#     for synset1 in synsets_word1:
-#         for synset2 in synsets_word2:
-#             if synset1 == synset2:
-#                 return True
-#     return False
+# Batch inference
+image_1 = PIL.Image.open("252219.png")
+image_2 = PIL.Image.open("252219.png")
+outputs = llm.generate(
+    [
+        {
+            "prompt": "USER: <image>\nWhat is the content of this image?\nASSISTANT:",
+            "multi_modal_data": {"image": image_1},
+        },
+        {
+            "prompt": "USER: <image>\nWhat's the color of this plate?\nASSISTANT:",
+            "multi_modal_data": {"image": image_2},
+        }
+    ]
+)
 
-# def is_hyponym(word1, word2):
-#     # Get the synsets (possible meanings) of each word
-#     synsets_word1 = wn.synsets(word1)
-#     synsets_word2 = wn.synsets(word2)
-    
-#     # For each synset of word1 (possible meanings of word1)
-#     for synset1 in synsets_word1:
-#         # For each synset of word2 (possible meanings of word2)
-#         for synset2 in synsets_word2:
-#             # Check if synset1 is a hyponym of synset2 (i.e., word1 is a type of word2)
-#             if synset2 in synset1.hypernyms():
-#                 return True
-#     return False
-
-# print(are_synonyms("locomotive", "train"))
+for o in outputs:
+    generated_text = o.outputs[0].text
+    print(generated_text)

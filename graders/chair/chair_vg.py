@@ -12,7 +12,7 @@ import re
 def sentence_to_words(object_dict, sentence):
     object_pattern = r'\b(' + '|'.join(map(re.escape, object_dict.keys())) + r')\b'
     object_matches = re.findall(object_pattern, sentence)
-    match_result = [(match, object_dict[match]) for match in object_matches]
+    match_result = list(set([(match, object_dict[match]) for match in object_matches]))
     return match_result
 
 def compute_chair(caps, total_synsets, syn_tree):
@@ -24,7 +24,7 @@ def compute_chair(caps, total_synsets, syn_tree):
     num_caps = 0.
     num_hallucinated_caps = 0.
     hallucinated_word_count = 0.
-    coco_word_count = 0.
+    vg_word_count = 0.
     
     output = {
         'sentences': [], "vg_words": [], 
@@ -67,29 +67,29 @@ def compute_chair(caps, total_synsets, syn_tree):
                                 'CHAIRi': 0}
 
         #count hallucinated words
-        coco_word_count += len(raw_words)
+        vg_word_count += len(raw_words)
         hallucinated = False
-        mscoco_words_i = []
-        mscoco_hallucinated_words_i = []
+        vg_words_i = []
+        vg_hallucinated_words_i = []
         object_in_gts = []
         
         for word, syn_class in output_objects:
             
-            mscoco_words_i.append((word, syn_class))
+            vg_words_i.append((word, syn_class))
             if is_hallucinate(syn_tree, syn_class, gt_synsets):
                 hallucinated_word_count += 1 
                 cap_dict['vg_hallucinated_words'].append((word, syn_class))
                 
-                mscoco_hallucinated_words_i.append((word, syn_class))
+                vg_hallucinated_words_i.append((word, syn_class))
                 hallucinated = True    
             else:
                 object_in_gts.append(syn_class)
 
-        mscoco_words_i = list(set(mscoco_words_i))
-        mscoco_hallucinated_words_i = list(set(mscoco_hallucinated_words_i))
+        vg_words_i = list(set(vg_words_i))
+        vg_hallucinated_words_i = list(set(vg_hallucinated_words_i))
         
-        output['vg_words'].extend(mscoco_words_i)
-        output['vg_hallucinated_words'].extend(mscoco_hallucinated_words_i)
+        output['vg_words'].extend(vg_words_i)
+        output['vg_hallucinated_words'].extend(vg_hallucinated_words_i)
         output['object_in_gts'].extend(list(set(object_in_gts)))
         output['gt_objects'].extend(gt_synsets)
         
@@ -109,7 +109,7 @@ def compute_chair(caps, total_synsets, syn_tree):
         output['sentences'].append(cap_dict)
 
     chair_s = (num_hallucinated_caps/num_caps)
-    chair_i = (hallucinated_word_count/coco_word_count)
+    chair_i = (hallucinated_word_count/vg_word_count)
     chair_i_v2 = len(output['vg_hallucinated_words'])/len(output['vg_words'])
     coverage_avg = np.mean(output["coverage"])
     coverage_all = len(output['object_in_gts']) / len(output['gt_objects'])
@@ -230,5 +230,10 @@ if __name__ == '__main__':
     syn_tree = synset_tree(object_dict)
     
     data = json.load(open(args.cap_file, 'r'))
+    for sample in data:
+        responses = [conv["response"] for conv in sample["conversations"]]
+        sample["caption"] = " ".join(responses)
+    
     chair_result = compute_chair(data, object_dict, syn_tree)
     print_metrics(chair_result)
+    save_hallucinated_words(args.cap_file, chair_result)

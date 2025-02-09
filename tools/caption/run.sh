@@ -12,4 +12,4 @@
 # mkdir -p slurm_logs
 # conda activate llava
 export PYTHONPATH=./
-python examiners/caption.py --debug --outfile output/caption/caption.json
+python examiners/caption_vg.py --debug --outfile output/vg/caption/caption.json

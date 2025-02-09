@@ -311,6 +311,10 @@ class CHAIR(object):
 def load_generated_captions(cap_file):
     #Read in captions        
     caps = json.load(open(cap_file))
+    for sample in caps:
+        responses = [conv["response"] for conv in sample["conversations"]]
+        sample["caption"] = " ".join(responses)
+        
     imids = set([cap['image_id'] for cap in caps])
     # try:
     #     #    metrics = caps['overall']

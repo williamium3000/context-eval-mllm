@@ -1,5 +1,4 @@
 from utils.vg import load_vg, format_case_vg
-from utils.utils import call_chatgpt, call_chatgpt_json
 from infer.infer_llava import load_model, eval_model
 import os
 import argparse
@@ -51,6 +50,7 @@ if __name__ == "__main__":
     for sample in tqdm.tqdm(samples):
         conv = dyna_conv(sample)
         sample["conversations"] = conv
+        del sample["image"]
     
     
     with open(args.outfile, "w") as f:

@@ -29,7 +29,7 @@ def load_sample_vg(idx):
 def load_vg(debug=False):
     all_img_ids = range(len(objects))
     if debug:
-        all_img_ids = all_img_ids[:5]
+        all_img_ids = all_img_ids[:100]
 
     samples = []
     print(f"loading vg: total {len(all_img_ids)}")

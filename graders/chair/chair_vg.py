@@ -8,14 +8,58 @@ import numpy as np
 import nltk
 import re
 
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import PorterStemmer
+import tqdm
 
-def sentence_to_words(object_dict, sentence):
-    object_pattern = r'\b(' + '|'.join(map(re.escape, object_dict.keys())) + r')\b'
-    object_matches = re.findall(object_pattern, sentence)
-    match_result = list(set([(match, object_dict[match]) for match in object_matches]))
+ps = PorterStemmer()
+def sentence2words(sentence):
+    phrases = ["cell phone"]
+    filtered_non_phy_words = ["side", "city", "image", "addition
+                              "]
+    # 1. Lowercasing
+    sentence = sentence.lower()
+
+    # 2. Replacing MWEs with underscores before tokenization
+    for phrase in phrases:
+        sentence = sentence.replace(phrase, phrase.replace(" ", "_"))
+
+    # 3. Removing Punctuation
+    sentence = re.sub(r'[^\w\s]', '', sentence)
+
+    # 4. Tokenization
+    tokens = word_tokenize(sentence)
+
+    # 5. POS Tagging to filter only Nouns (NN, NNS, NNP, NNPS)
+    pos_tags = nltk.pos_tag(tokens)
+    nouns = [word for word, pos in pos_tags if pos.startswith('NN') or '_' in word]  # Keep MWEs regardless of POS
+    nouns = [word for word in nouns if word not in filtered_non_phy_words]
+    # 6. Removing Stop Words
+    stop_words = set(stopwords.words('english'))
+    filtered_tokens = [word for word in nouns if word not in stop_words]
+    
+    # 7. Stemming (excluding MWEs)
+    stemmed_tokens = [ps.stem(word) if '_' not in word else word for word in filtered_tokens]
+
+    # 8. Reverting underscores to spaces for readability
+    final_tokens = [word.replace('_', ' ') for word in stemmed_tokens]
+    
+    return final_tokens
+
+
+def match_vg_list(object_dict, words):
+    match_result = []
+    for vg_object in object_dict.keys():
+        for word in words:
+            if vg_object == word:
+                match_result.append(vg_object)
+    match_result = list(set([(object_dict[match][0], object_dict[match][1]) for match in match_result]))
     return match_result
 
-def compute_chair(caps, total_synsets, syn_tree):
+def compute_chair(caps, total_synsets):
 
     '''
     Given ground truth objects and generated captions, determine which sentences have hallucinated words.
@@ -33,7 +77,7 @@ def compute_chair(caps, total_synsets, syn_tree):
         "gt_objects": [],
         "coverage": []} 
 
-    for i, cap_eval in enumerate(caps):
+    for i, cap_eval in enumerate(tqdm.tqdm(caps)):
 
         cap = cap_eval['caption']
         imid = cap_eval['image_id']
@@ -49,11 +93,13 @@ def compute_chair(caps, total_synsets, syn_tree):
         for rel in cap_eval['relationships']:
             gt_synsets.extend(rel["subject"]['synsets'])
             gt_synsets.extend(rel["object"]['synsets'])
-        gt_synsets = list(set(gt_synsets))
-        output_objects = sentence_to_words(total_synsets, cap)
         
-        raw_words = nltk.word_tokenize(cap.lower())
-        # raw_words = [singularize(w) for w in raw_words]
+        gt_synsets = list(set(gt_synsets))
+        
+        raw_words = sentence2words(cap)
+        
+        output_objects = match_vg_list(total_synsets, raw_words)
+        
         
         cap_dict = {'image_id': cap_eval['image_id'], 
                     'caption': cap,
@@ -76,7 +122,7 @@ def compute_chair(caps, total_synsets, syn_tree):
         for word, syn_class in output_objects:
             
             vg_words_i.append((word, syn_class))
-            if is_hallucinate(syn_tree, syn_class, gt_synsets):
+            if is_hallucinate(syn_class, gt_synsets):
                 hallucinated_word_count += 1 
                 cap_dict['vg_hallucinated_words'].append((word, syn_class))
                 
@@ -127,7 +173,7 @@ def compute_chair(caps, total_synsets, syn_tree):
 def save_hallucinated_words(cap_file, cap_dict): 
     tag = cap_file.split('/')[-1] 
     with open(os.path.join(os.path.dirname(cap_file), f'hallucinated_words_{tag}'), 'w') as f:
-        json.dump(cap_dict, f)
+        json.dump(cap_dict, f, indent=4)
 
 def print_metrics(hallucination_cap_dict, quiet=False):
     sentence_metrics = hallucination_cap_dict['overall_metrics']
@@ -150,49 +196,6 @@ def print_metrics(hallucination_cap_dict, quiet=False):
 
 
 
-def synset_tree(object_dict):
-    synset_name_list = list(set(object_dict.values()))
-
-    # with open('word_synset.txt', "r") as word_file:
-    #     word_list = word_file.readlines()
-    #     word_list = [word.strip() for word in word_list]
-
-    tree = {"name": "root", "children": []}
-    added_nodes = {}
-
-    def find_or_create_node(name):
-        if name in added_nodes.keys():
-            return added_nodes[name]
-        new_node = {"name": name, "children": []}
-        added_nodes[name] = new_node
-        return new_node
-
-    # Build the tree
-    for synset_name in synset_name_list:
-        synset = wn.synset(synset_name)
-
-        word = synset_name.split('.')[0]
-        word_node = find_or_create_node(synset_name)
-
-        skip = False
-        for hypernym in synset.hypernyms():
-            hypernym_name = hypernym.name()
-            if hypernym_name in synset_name_list:
-                # if len(synset.hypernyms()) > 1:
-                #     print(word, synset.hypernyms())
-
-                hypernym_node = find_or_create_node(hypernym_name)
-                if hypernym_name not in [object_dict["name"] for object_dict in hypernym_node["children"]]:
-                    hypernym_node["children"].append(word_node)
-                    # print(f'Word: {word}, Hyper: {hypernym_name}')
-                    skip = True
-
-        if not skip:
-            if synset_name not in [object_dict["name"] for object_dict in tree["children"]]:
-                tree["children"].append(word_node)
-
-    return tree
-
 
 def is_father_child_relationship(tree, father_name, child_name):
     if not tree:
@@ -210,12 +213,50 @@ def is_father_child_relationship(tree, father_name, child_name):
     return False
 
 
-def is_hallucinate(tree, response_word, gt_words):
+def is_hallucinate(response_word, gt_words):
     
+    response_synset = wn.synset(response_word)
+    response_hyponyms = get_hyponyms_tree(response_synset)
     for gt_word in gt_words:
-        if (response_word == gt_word) or is_father_child_relationship(tree, response_word, gt_word) or is_father_child_relationship(tree, gt_word, response_word):
+        gt_synset = wn.synset(gt_word)
+        gt_hypernyms = get_hypernym_tree(gt_synset)
+
+        if (response_word == gt_word) or (response_synset in gt_hypernyms) or (gt_synset in response_hyponyms):
             return False
+    
     return True
+
+
+def get_hypernym_tree(synset):
+    hypernyms = set()
+
+    def traverse(syn):
+        if syn not in hypernyms:
+            hypernyms.add(syn)
+            for hypernym in syn.hypernyms():
+                traverse(hypernym)
+
+    traverse(synset)
+    return hypernyms
+
+def get_hyponyms_tree(synset):
+    hyponyms = set()
+
+    def traverse(syn):
+        if syn not in hyponyms:
+            hyponyms.add(syn)
+            for hypernym in syn.hyponyms():
+                traverse(hypernym)
+
+    traverse(synset)
+    return hyponyms
+
+def is_physical_object(syn):
+    syn = wn.synset(syn)
+    hypernym_tree = get_hypernym_tree(syn)
+    if any(hypernym.name().startswith(("physical_entity.n.", "people.n.", "vegetation.n")) for hypernym in hypernym_tree):
+        return True
+    return False
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -225,15 +266,20 @@ if __name__ == '__main__':
     
     with open(args.object_synsets) as object_dict_file:
         object_dict = json.load(object_dict_file)
-        object_dict = {key: value for key, value in object_dict.items()}
+        object_dict = {key.split('.')[0]: value for key, value in object_dict.items()}
+
+    object_dict = {key: value for key, value in object_dict.items() if is_physical_object(value)}
     
-    syn_tree = synset_tree(object_dict)
+    stemmed_object_dict = {}
+    
+    for word, synset in object_dict.items():
+        stemmed_object_dict[ps.stem(word)] = (word, synset)
     
     data = json.load(open(args.cap_file, 'r'))
     for sample in data:
         responses = [conv["response"] for conv in sample["conversations"]]
         sample["caption"] = " ".join(responses)
     
-    chair_result = compute_chair(data, object_dict, syn_tree)
+    chair_result = compute_chair(data, stemmed_object_dict)
     print_metrics(chair_result)
     save_hallucinated_words(args.cap_file, chair_result)

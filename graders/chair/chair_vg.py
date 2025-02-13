@@ -18,8 +18,7 @@ import tqdm
 ps = PorterStemmer()
 def sentence2words(sentence):
     phrases = ["cell phone"]
-    filtered_non_phy_words = ["side", "city", "image", "addition
-                              "]
+    filtered_non_phy_words = ["side", "city", "image", "addition"]
     # 1. Lowercasing
     sentence = sentence.lower()
 
@@ -93,7 +92,14 @@ def compute_chair(caps, total_synsets):
         for rel in cap_eval['relationships']:
             gt_synsets.extend(rel["subject"]['synsets'])
             gt_synsets.extend(rel["object"]['synsets'])
-        
+        for rcap in cap_eval['regions']:
+            rcap = rcap['phrase']
+            
+            raw_words_recap = sentence2words(rcap)
+            output_objects_recap = match_vg_list(total_synsets, raw_words_recap)
+            synset_recap = [_[1] for _ in output_objects_recap]
+            gt_synsets.extend(synset_recap)
+            
         gt_synsets = list(set(gt_synsets))
         
         raw_words = sentence2words(cap)

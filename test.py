@@ -20,9 +20,11 @@ for o in outputs:
     generated_text = o.outputs[0].text
     print(generated_text)
 
+
 # Batch inference
 image_1 = PIL.Image.open("252219.png")
 image_2 = PIL.Image.open("252219.png")
+
 outputs = llm.generate(
     [
         {

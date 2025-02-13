@@ -26,10 +26,10 @@ def load_sample_vg(idx):
     return sample
 
 
-def load_vg(debug=False):
+def load_vg(num_samples=None):
     all_img_ids = range(len(objects))
-    if debug:
-        all_img_ids = all_img_ids[:100]
+    if num_samples is not None:
+        all_img_ids = all_img_ids[:num_samples]
 
     samples = []
     print(f"loading vg: total {len(all_img_ids)}")
@@ -63,6 +63,7 @@ def format_case_vg(case):
     formatted += "\nRelation between the above instances:\n"
     for rel in relationships:
         formatted += f"{rel['subject']['names'][0]} {rel['predicate'].lower()} {rel['object']['names'][0]}\n"
+        
     return formatted
 if __name__ == "__main__":
     print(format_case_vg(load_vg(debug=True)[0]))

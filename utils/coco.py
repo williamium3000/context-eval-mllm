@@ -39,10 +39,10 @@ def load_sample_coco2017(img_id):
     }
 
 
-def load_coco2017(debug=False):
+def load_coco2017(num_samples=None):
     all_img_ids = coco17_instance.getImgIds()
-    if debug:
-        all_img_ids = all_img_ids[:200]
+    if num_samples is not None:
+        all_img_ids = all_img_ids[:num_samples]
 
     samples = []
     print(f"loading coco2017: total {len(all_img_ids)}")

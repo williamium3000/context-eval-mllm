@@ -1,65 +1,78 @@
-from pycocotools.coco import COCO
-import skimage.io as io
-import matplotlib.pyplot as plt
-import pylab
-import argparse
+import gradio as gr
 import json
-import os
+import requests
+from io import BytesIO
+from PIL import Image
 
-from utils.coco import format_case_coco
-from matplotlib.gridspec import GridSpec
+def load_json_file(json_file):
+    """
+    When a JSON file is uploaded, load the data and update the dropdown choices.
+    The data is stored in a hidden state.
+    """
+    if json_file is None:
+        return gr.update(choices=[]), None
+    try:
+        # Depending on your Gradio version, json_file may be a file path or file-like object.
+        if hasattr(json_file, "name"):
+            with open(json_file.name, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            data = json.load(json_file)
+    except Exception as e:
+        print("Error reading JSON:", e)
+        return gr.update(choices=[]), None
 
-coco17_instance = COCO("data/coco/annotations/instances_val2017.json")
-coco17_caption = COCO("data/coco/annotations/captions_val2017.json")
-cats17 = coco17_instance.loadCats(coco17_instance.getCatIds())
-id_name_mapping17 = {cat["id"]: cat["name"] for cat in cats17}
-coco14_instance = COCO("data/coco/annotations/instances_val2014.json")
-coco14_caption = COCO("data/coco/annotations/captions_val2014.json")
-cats14 = coco14_instance.loadCats(coco14_instance.getCatIds())
-id_name_mapping14 = {cat["id"]: cat["name"] for cat in cats14}
+    # Create dropdown choices based on the image_id from each dict.
+    choices = [str(item["image_id"]) for item in data]
+    default = choices[0] if choices else None
+    return gr.update(choices=choices, value=default), data
 
-parser = argparse.ArgumentParser()
-parser.add_argument('json', type=str)
-parser.add_argument('outdir', type=str)
-parser.add_argument('--anno', action="store_true")
-args = parser.parse_args()
-
-
-os.makedirs(args.outdir, exist_ok=True)
-json_data = json.load(open(args.json))
-for i, sample in enumerate(json_data):
-    format_anno = format_case_coco(sample)
-    img_id = sample["image_id"]
-    img = coco17_instance.loadImgs([img_id])[0]
-    # visual the result conversationq
-    # first display the image with bbox and captions
-    # then display the conversation in the image
+def update_display(image_id, json_data):
+    """
+    Given an image_id and the loaded JSON data, download the image and prepare
+    a conversation history list for display in a Chatbot component.
+    """
+    if json_data is None or image_id is None:
+        return None, []
     
-    I = io.imread(os.path.join("data/coco/val2017", sample["file_name"]))
-    # fig, ax = plt.subplots(1, 2)
-    # ax.imshow(I)
-    # plt.axis('off')
-    fig = plt.figure(figsize=(72, 48))
-
-    # Define the GridSpec
-    gs = GridSpec(1, 2, width_ratios=[1, 1.5])  # 1:1.5 ratio between image and text
-
-    # Create the subplot for the image
-    ax1 = fig.add_subplot(gs[0])
-    ax1.imshow(I)
-    ax1.axis('off')  # Hide the axis
+    # Find the item with the matching image_id.
+    selected_item = next((item for item in json_data if str(item["image_id"]) == image_id), None)
+    if selected_item is None:
+        return None, []
     
-    if args.anno:
-        annIds = coco17_instance.getAnnIds(imgIds=img_id, iscrowd=False)
-        anns = coco17_instance.loadAnns(annIds)
-        coco17_instance.showAnns(anns)
-    
-    
-    conversation_text = format_anno + "\n\n" + "\n\n".join([f"Round {conv['round_id']}:\nPrompt: {conv['prompt']}\nResponse: {conv['response']}" for conv in sample["conversations"]])
-    # plt.figtext(0, 0.5, conversation_text, wrap=True, horizontalalignment='left', verticalalignment='center', fontsize=12, bbox=dict(facecolor='none', edgecolor='black'))
-    ax2 = fig.add_subplot(gs[1])
-    ax2.axis('off')  # Hide the axis
-    ax2.text(0, 0.5, conversation_text, wrap=True, horizontalalignment='left', verticalalignment='center', fontsize=28)
+    try:
+        response = requests.get(selected_item["url"])
+        response.raise_for_status()
+        image = Image.open(BytesIO(response.content))
+    except Exception as e:
+        print("Error downloading image:", e)
+        image = None
 
-    plt.tight_layout()
-    plt.savefig(os.path.join(args.outdir, f"{i}.png"))
+    # Build a conversation list as tuples (prompt, response) for the Chatbot.
+    chat_history = []
+    for conv in selected_item.get("conversations", []):
+        chat_history.append((conv.get("prompt", ""), conv.get("response", "")))
+    
+    return image, chat_history
+
+# Build the Gradio interface.
+with gr.Blocks() as demo:
+    gr.Markdown("## MLLM Visualizer")
+    with gr.Row():
+        with gr.Column(scale=1):
+            json_file = gr.File(label="Upload JSON file", file_types=[".json"])
+            dropdown = gr.Dropdown(label="Select Image ID", choices=[])
+        with gr.Column(scale=2):
+            image_out = gr.Image(label="Image")
+            chatbot = gr.Chatbot(label="Conversation")
+    
+    # A hidden state component to store the loaded JSON data.
+    json_state = gr.State()
+
+    # When a file is uploaded, load the JSON data and update the dropdown.
+    json_file.change(load_json_file, inputs=json_file, outputs=[dropdown, json_state])
+    # When the dropdown selection changes, update the image and conversation.
+    dropdown.change(update_display, inputs=[dropdown, json_state], outputs=[image_out, chatbot])
+
+# Launch with a public share link (if desired).
+demo.launch(share=True)

@@ -1,8 +1,36 @@
-import itertools
-from nltk.corpus import wordnet as wn
+from coco import load_coco2017, format_case_coco
+from vg import load_vg, format_case_vg
 
+import os
+from PIL import Image
+import argparse
+import torch
+import json
+import requests
+from PIL import Image
+from io import BytesIO
+import re
+import os
+import tqdm
 
-def get_synset(word):
-    syn_list = wn.synonyms(word)
-    syn_list = list(itertools.chain.from_iterable(syn_list))
-    return [word]+[' '.join(syn.split('_')) for syn in syn_list]
+def load_image(image_file):
+    if image_file.startswith("http") or image_file.startswith("https"):
+        response = requests.get(image_file)
+        image = Image.open(BytesIO(response.content)).convert("RGB")
+    else:
+        image = Image.open(image_file).convert("RGB")
+    return image
+
+def load_data(args):
+    if args.dataset == "coco":
+        samples =  load_coco2017(args.num_samples)
+        for sample in samples:
+            samples["image"] = load_image(os.path.join("data/coco/val2017", sample["file_name"]))
+            
+    elif args.dataset == "vg":
+        samples = load_vg(args.num_samples)
+        samples = [format_case_vg(sample) for sample in samples]
+    else:
+        raise ValueError("Unknown dataset")
+
+    

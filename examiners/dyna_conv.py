@@ -1,4 +1,6 @@
-from utils.vg import load_vg, format_case_vg
+from utils.utils import load_data
+from utils.vg import format_case_vg
+from utils.coco import format_case_coco
 from utils.llm import LLMChat, parse_json
 from examiners import prompt as PROMPT
 from infer.infer_llava import load_model, eval_model
@@ -9,8 +11,11 @@ import tqdm
 import copy
 
 def dyna_conv(args, case, llm_chat):
+    
     template = PROMPT.__dict__[args.p_mode]
-    prompt = template.format(format_case_vg(case))
+    image_info = format_case_vg(case) if args.dataset == "vg" else format_case_coco(case)
+    prompt = template.format(image_info)
+    
     conversations = [
                     {"role": "system", "content": "You are a helpful AI visual assistant that can analyze a single image and capable of having a conversation with a human."},
                     {"role": "user", "content": prompt}
@@ -43,8 +48,8 @@ def dyna_conv(args, case, llm_chat):
                             })())
         output = output.lower()
         
-        print(f"assistant: {message_evaluator}")
-        print(f"user: {output}")
+        # print(f"assistant: {message_evaluator}")
+        # print(f"user: {output}")
         conversations.append({"role": "user", "content": output})
         r += 1
         to_save.append(
@@ -55,18 +60,19 @@ def dyna_conv(args, case, llm_chat):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--debug", action="store_true")
     parser.add_argument("--p_mode", type=str, default="certainty")
     parser.add_argument('--model_base', type=str, default=None)
     parser.add_argument('--model_path', type=str, default="liuhaotian/llava-v1.5-7b")
     parser.add_argument('--outfile', type=str)
+    parser.add_argument('--dataset', type=str)
+    parser.add_argument('--num_samples', type=int, default=20)
     args = parser.parse_args()
 
     os.makedirs(os.path.dirname(args.outfile), exist_ok=True)
     # need to figure out how to eval on different models
     model_name, tokenizer, model, image_processor, context_len = load_model(args.model_path, args.model_base)
     model_path = args.model_path
-    samples = load_vg(args.debug)
+    samples = load_data(args)
     
     llm_chat = LLMChat(model_name="gpt-4o")
     

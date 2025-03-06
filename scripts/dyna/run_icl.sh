@@ -11,5 +11,8 @@
 
 # mkdir -p slurm_logs
 # conda activate llava
+
 export PYTHONPATH=./
-python examiners/caption_vg.py --debug --outfile output/vg/caption/caption.json
+export CUDA_VISIBLE_DEVICES=0
+
+python examiners/dyna_conv_icl.py --dataset vg --p_mode None --outfile output/vg/dyna/icl.json

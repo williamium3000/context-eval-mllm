@@ -1,4 +1,6 @@
-from utils.vg import load_vg, format_case_vg
+from utils.utils import load_data
+from utils.vg import format_case_vg
+from utils.coco import format_case_coco
 from utils.llm import LLMChat, parse_json
 from examiners import prompt as PROMPT
 from infer.infer_llava import load_model, eval_model
@@ -3055,10 +3057,11 @@ ICLs = [
 
 
 def dyna_conv(args, case, llm_chat):
+    image_info = format_case_vg(case) if args.dataset == "vg" else format_case_coco(case)
     conversations = [
                     {"role": "system", "content": SYSTEM_PROMPT},
                     *ICLs,
-                    {"role": "user", "content": CONV_PROMPT.format(format_case_vg(case))}
+                    {"role": "user", "content": CONV_PROMPT.format(image_info)}
     ]
     
     to_save = []
@@ -3088,8 +3091,8 @@ def dyna_conv(args, case, llm_chat):
                             })())
         output = output.lower()
         conversations.append({"role": "user", "content": output})
-        print(f"examiner: {message_evaluator}")
-        print(f"vlm model: {output}")
+        # print(f"examiner: {message_evaluator}")
+        # print(f"vlm model: {output}")
         r += 1
         to_save.append(
             {"round_id": r, "prompt": message_evaluator, "response":output}
@@ -3099,7 +3102,8 @@ def dyna_conv(args, case, llm_chat):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--debug", action="store_true")
+    parser.add_argument('--dataset', type=str)
+    parser.add_argument('--num_samples', type=int, default=20)
     parser.add_argument("--p_mode", type=str, default="certainty")
     parser.add_argument('--model_base', type=str, default=None)
     parser.add_argument('--model_path', type=str, default="liuhaotian/llava-v1.5-7b")
@@ -3110,7 +3114,7 @@ if __name__ == "__main__":
     # need to figure out how to eval on different models
     model_name, tokenizer, model, image_processor, context_len = load_model(args.model_path, args.model_base)
     model_path = args.model_path
-    samples = load_vg(args.debug)
+    samples = load_data(args)
     
     llm_chat = LLMChat(model_name="gpt-4o")
     

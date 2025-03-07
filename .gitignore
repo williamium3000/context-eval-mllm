@@ -161,9 +161,6 @@ cython_debug/
 
 eval
 data/
-slurm_logs
 LLaVA/
-mplug_owl2/
-output/
 .DS_Store/
 visualization/

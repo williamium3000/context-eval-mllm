@@ -3102,7 +3102,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--p_mode", type=str, default="certainty")
-    parser.add_argument('--model_base', type=str, default=None)
     parser.add_argument('--model_path', type=str, default="liuhaotian/llava-v1.5-7b")
     parser.add_argument('--outfile', type=str)
     args = parser.parse_args()

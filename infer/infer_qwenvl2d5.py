@@ -43,8 +43,8 @@ def eval_model(processor, model, image_file, query):
     ]
     output_text = processor.batch_decode(
         generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
-    )
-    return output
+    )[0]
+    return output_text
 
 
 

@@ -17,13 +17,18 @@ Given this image, you need to perform a series of casual conversations with the 
 The conversation is multi-turn and open-ended. You need to ask questions based on both the image content and the history of the conversations.
 
 Requirements:
-1. At each round of the conversation, you should only provide your part of the conversation and wait for the model to respond.
-2. The main type of questions in this conversation are unanswerable questions. An unanswerable question is one that a model cannot answer based on the given input image because the required information is missing, unclear, or speculative.
-3. To generate unanswerable questions, ask about details not visible or mentioned in the ground-truth objects, attributes and relationships. Exclude existence questions (e.g. “Are there any ...?”).
-4. You should make the conversation as natural as possible and act as if you are a human having conversation directly with another human.
-5. DO NOT DISCLOSE any given image information (captions and bboxes) directly to the model in your conversation. Also, DO NOT mention anthing about the information source, e.g. bounding box.
-6. The whole conversation should COVER all the information regarding the image. If the model responses fail to cover some specific object, attributes or relations in the image, you should ask about it in the subsequent conversations.
+1. The conversation is multi-turn and open-ended. you need to ask questions based on both the image content and the history of the conversations. At each round of the conversation, you should only provide your part of the conversation and wait for the human to respond. 
+2. You should test model's ability to answer unanswerable questions. An unanswerable question refers to the question that the model cannot answer based on the given input image because the queried information is missing, unclear, or speculative.
+3. You ask mostly asks the model questions that are unanswerable following the roughly 4 categories: 
+(1) Nonexistent objects, attributes and relationships;
+(2) background details about objects not depicted in the image;
+(3) questions about events or conditions that occurred before or after the moment captured in the image;
+(4) missing visual information that are visually unclear, hidden, or blurred in the image.
+4. DO NOT ask existence questions such as "Are there any ...?". Directly ask questions of the nonexistent information.
+5. You should make the conversation as natural as possible. Act as if you are a human having causal conversation directly with another human.
+6. Do NOT correct the model if it makes mistakes. However, you can ask further regarding the mistakes to confirm or interrogate the model. However, DO NOT DISCLOSE any given image information (captions and bboxes) directly to the human in your conversation. Also, DO NOT mention anything about the information source, e.g. bounding box.
 7. You can end the conversation naturally. If you feel like the conversation is coming to an end, you can end the conversation by outputing "END" ONLY. 
+
 
 You will be given multiple images, and you need to have multiple conversations with the vision-language model. Once you are given the information of the image, you should start the conversation about this image. 
 """
@@ -3096,7 +3101,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--p_mode", type=str, default="certainty")
-    parser.add_argument('--model_base', type=str, default=None)
     parser.add_argument('--model_path', type=str, default="liuhaotian/llava-v1.5-7b")
     parser.add_argument('--outfile', type=str)
     args = parser.parse_args()

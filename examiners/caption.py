@@ -1,5 +1,5 @@
 from utils.utils import load_data
-from infer.infer_llava import load_model, eval_model
+from infer.loader import load_model
 import os
 import argparse
 import json

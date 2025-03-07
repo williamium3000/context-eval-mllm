@@ -3,7 +3,7 @@ from utils.vg import format_case_vg
 from utils.coco import format_case_coco
 from utils.llm import LLMChat, parse_json
 from examiners import prompt as PROMPT
-from infer.infer_llava import load_model, eval_model
+from infer.loader import load_model
 import os
 import argparse
 import json
@@ -12,7 +12,7 @@ import copy
 
 SYSTEM_PROMPT = \
 """
-Task: "Task: Your task is to have a multi-round conversation with a vision-language model regarding a given image. The responses from the vision-language model will be later to used to evaluate whether the model is hallucinating or faithful to the image (wheteher model generate responses contradictory to the content of the image).
+Your task is to have a multi-round conversation with a vision-language model regarding a given image. The responses from the vision-language model will be later to used to evaluate whether the model is hallucinating or faithful to the image (wheteher model generate responses contradictory to the content of the image).
 You need to have multiple conversations the model over multiple images. Each conversation will be based on one single image. The given image will be presented to you as a list of objects with attributes and relation of these objects. Each objects will be presented with specific coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
 Given this image, you need to perform a series of casual conversations with the vision-language model naturally and ask questions about the given detailed information of the image.
 The conversation is multi-turn and open-ended. you need to ask questions based on both the image content and the history of the conversations.
@@ -21,11 +21,10 @@ Requirements:
 1. The conversation is multi-turn and open-ended. you need to ask questions based on both the image content and the history of the conversations. At each round of the conversation, you should only provide your part of the conversation and wait for the human to respond. 
 2. You should make the conversation as natural as possible. Act as if you are a human having causal conversation directly with another human.
 3. Do NOT correct the model if it makes mistakes. However, you can ask further regarding the mistakes to confirm or interrogate the model. However, DO NOT DISCLOSE any given image information (captions and bboxes) directly to the human in your conversation. Also, DO NOT mention anything about the information source, e.g. bounding box.
-4. The whole conversation should COVER all the information regarding the image. If the human responses fail to cover some specific object, attributes or relations in the image, you should ask about it in the subsequent conversations.
-5. Ask diverse questions. DO NOT ask any question that cannot be answered from the given image information confidently. ONLY include questions that have definite answers
+4. Ask diverse questions. DO NOT ask any question that cannot be answered from the given image information confidently. ONLY include questions that have definite answers
     a. one can see the content in the image that the question asks about and can answer confidently.
     b. one can determine confidently from the image that it is not in the image.
-6. You can end the conversation naturally. If you feel like the conversation is coming to an end, you can end the conversation by outputing "END" ONLY. 
+5. You can end the conversation naturally. If you feel like the conversation is coming to an end, you can end the conversation by outputing "END" ONLY. 
 
 You will be given multiple images, and you need to have multiple conversations with the vision-language model. Once you are given the information of the image, you should start the conversation about this image. 
 """
@@ -3060,7 +3059,7 @@ ICLs = [
     ]
 
 
-def dyna_conv(args, case, llm_chat):
+def dyna_conv(args, case, llm_chat, eval_func):
     image_info = format_case_vg(case) if args.dataset == "vg" else format_case_coco(case)
     conversations = [
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -3078,21 +3077,7 @@ def dyna_conv(args, case, llm_chat):
         
         conversations.append({"role": "assistant", "content": message_evaluator})
         image_file = case["image"]
-        output = eval_model(model_name, tokenizer, model, image_processor, context_len, type('Args', (), {
-                                "model_path": model_path,
-                                "model_base": None,
-                                "model_name": model_name,
-                                "query": message_evaluator,
-                                "conv_mode": None,
-                                "image_file": image_file,
-                                "sep": ",",
-                                "load_in_8bit": False,
-                                "load_in_4bit": False,
-                                "temperature": 0.0,  # set as 0.0 for reproceduce
-                                "top_p": None,
-                                "num_beams": 1,
-                                "max_new_tokens": 512
-                            })())
+        output = eval_func(image_file=image_file, query=message_evaluator)
         output = output.lower()
         conversations.append({"role": "user", "content": output})
         # print(f"examiner: {message_evaluator}")
@@ -3109,22 +3094,20 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str)
     parser.add_argument('--num_samples', type=int, default=20)
     parser.add_argument("--p_mode", type=str, default="certainty")
-    parser.add_argument('--model_base', type=str, default=None)
     parser.add_argument('--model_path', type=str, default="liuhaotian/llava-v1.5-7b")
     parser.add_argument('--outfile', type=str)
     args = parser.parse_args()
 
     os.makedirs(os.path.dirname(args.outfile), exist_ok=True)
     # need to figure out how to eval on different models
-    model_name, tokenizer, model, image_processor, context_len = load_model(args.model_path, args.model_base)
-    model_path = args.model_path
+    eval_func = load_model(args)
     samples = load_data(args)
     
     llm_chat = LLMChat(model_name="gpt-4o")
     
     print("starting conversation with model...")
     for sample in tqdm.tqdm(samples):
-        conv = dyna_conv(args, sample, llm_chat)
+        conv = dyna_conv(args, sample, llm_chat, eval_func)
         sample["conversations"] = conv
         del sample["image"]
     

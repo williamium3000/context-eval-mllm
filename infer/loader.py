@@ -4,7 +4,7 @@ from .infer_qwenvl2d5 import eval_model as eval_model_qwenvl2d5
 from functools import partial
 
 import torch
-from transformers import AutoProcessor, LlavaForConditionalGeneration, Blip2Processor, Blip2ForConditionalGeneration
+from transformers import AutoProcessor, LlavaForConditionalGeneration, Blip2Processor, Blip2ForConditionalGeneration, Qwen2_5_VLForConditionalGeneration
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 

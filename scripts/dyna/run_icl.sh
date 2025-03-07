@@ -20,4 +20,4 @@ export CUDA_VISIBLE_DEVICES=0
 # python examiners/dyna_conv_icl.py --model_path llava-hf/llava-1.5-7b-hf --dataset vg --p_mode CONV_MODEL_PERSPECTIVE_PROMPT_VG_ICL_CERTAINTY --outfile output/vg/dyna/icl/icl_certainty.json --icls icls/icl.json --num_samples 100  &
 # python examiners/dyna_conv_icl.py --model_path llava-hf/llava-1.5-7b-hf --dataset vg --p_mode CONV_MODEL_PERSPECTIVE_PROMPT_VG_ICL_COVERAGE --outfile output/vg/dyna/icl/icl_coverage.json --icls icls/icl.json --num_samples 100 &
 # python examiners/dyna_conv_icl.py --model_path llava-hf/llava-1.5-7b-hf --dataset vg --p_mode CONV_MODEL_PERSPECTIVE_PROMPT_VG_ICL --outfile output/vg/dyna/icl/icl.json --icls icls/icl.json --num_samples 100 &
-python examiners/dyna_conv_icl_context.py --model_path llava-hf/llava-1.5-7b-hf --dataset vg --p_mode None --outfile output/vg/dyna/icl/context.json --num_samples 5
+python examiners/dyna_conv_icl_context.py --model_path llava-hf/llava-1.5-7b-hf --dataset vg --p_mode None --outfile output/vg/dyna/icl/icl_context.json --num_samples 100

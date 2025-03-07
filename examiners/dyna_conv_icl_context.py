@@ -66,13 +66,12 @@ The conversation is multi-turn and open-ended. you need to ask questions based o
 
 
 Requirements:
-1. At each round of the conversation, you should only provide your part of the conversation and wait for the model to respond.
-2. The questions asked or the statements made must match the traits and objective of the assigned personas.
-
 1. You should ask questions based on the given context and goal. DO NOT ask questions that are not faithful to your characters and contexts. The question you ask should also be based on both the image content and the history of the conversations.
 1. The conversation is multi-turn and open-ended. At each round of the conversation, you should only provide your part of the conversation and wait for the human to respond. 
 2. You should make the conversation as natural as possible. Act as if you are a human having causal conversation directly with another human. 
 3. Do NOT correct the model if it makes mistakes. However, you can ask further regarding the mistakes to confirm or interrogate the model. However, DO NOT DISCLOSE any given image information (captions and bboxes) directly to the human in your conversation. Also, DO NOT mention anything about the information source, e.g. bounding box.
+4. You can end the conversation naturally. If you feel like the conversation is coming to an end, you can end the conversation by outputing "END" ONLY. 
+
 
 You will be given multiple images, and you need to have multiple conversations with the vision-language model. Once you are given the information of the image, you should start the conversation about this image. 
 """
@@ -3168,8 +3167,8 @@ def dyna_conv(args, persona, case, llm_chat, eval_func):
         output = eval_func(image_file=image_file, query=message_evaluator)
         output = output.lower()
         conversations.append({"role": "user", "content": output})
-        # print(f"examiner: {message_evaluator}")
-        # print(f"vlm model: {output}")
+        print(f"examiner: {message_evaluator}")
+        print(f"vlm model: {output}")
         r += 1
         to_save.append(
             {"round_id": r, "prompt": message_evaluator, "response":output}

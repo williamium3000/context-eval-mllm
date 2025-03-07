@@ -3041,16 +3041,22 @@ icl_cases = [
 
 ICLs = [
     {"role": "user", "content": CONV_PROMPT.format(format_case_vg(icl_cases[0]))},
-    {"role": "assistant", "content": "Which side of the foods should we cut?"},
-    {"role": "user", "content": "There are no foods in the given image."},
-    {"role": "assistant", "content": "What is the color of the earphones in the given image?"},
-    {"role": "user", "content": "There are no earphones in the given image."},
+    {"role": "assistant", "content": "Alright, let's start this conversation. I'm looking at a scene here, and I'm curious about a few things. Can you tell me if about the man in the image wearing a blue hat?"},
+    {"role": "user", "content": "Tthere is a person wearing a blue hat on the left of the image by the side of the table"},
+    {"role": "assistant", "content": "Interesting! What about any signs or writings in the scene? Can you describe what they say or their colors?"},
+    {"role": "user", "content": "In the scene, there is a sign on the wall that says 'no smoking.' the sign is white and placed on the wall, indicating that smoking is not allowed in the area."},
+    {"role": "assistant", "content": "Which side of the cake on the table should we cut?"},
+    {"role": "user", "content": "There are no cake in the given image."},
+    {"role": "assistant", "content": "What is the color of the earphones the woman is wearing in the image?"},
+    {"role": "user", "content": "The earphones are in the color of blue."},
     {"role": "assistant", "content": "Where is the television?"},
-    {"role": "user", "content": "There is no television in the given image."},
+    {"role": "user", "content": "The television is on the wall in the given image."},
     {"role": "assistant", "content": "Describe the man inside in the image."},
     {"role": "user", "content": "The is no man in the image."},
     {"role": "assistant", "content": "END"}
     ]
+
+print(format_case_vg(icl_cases[0]))
 
 
 def dyna_conv(args, case, llm_chat):

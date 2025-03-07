@@ -2,11 +2,12 @@ from .infer_llava import eval_model
 from functools import partial
 
 import torch
-from transformers import AutoProcessor, LlavaForConditionalGeneration
+from transformers import AutoProcessor, LlavaForConditionalGeneration, Blip2Processor, Blip2ForConditionalGeneration
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def load_model(args):
-    if "llava-1.5-7b-hf" in args.model_path:
+    if "llava-1.5" in args.model_path:
         model = LlavaForConditionalGeneration.from_pretrained(
             args.model_path, 
             torch_dtype=torch.float16, 
@@ -15,5 +16,13 @@ def load_model(args):
 
         processor = AutoProcessor.from_pretrained(args.model_path)
         return partial(eval_model, model=model, processor=processor)
+    
+    elif "blip2" in args.model_path:
+        processor = Blip2Processor.from_pretrained(args.model_path)
+        model = Blip2ForConditionalGeneration.from_pretrained(
+            args.model_path, torch_dtype=torch.float32
+        )
+        model.to(device)
+        
     else:
         raise NotImplementedError

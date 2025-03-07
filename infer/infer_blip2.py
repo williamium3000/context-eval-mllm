@@ -12,8 +12,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def eval_model(processor, model, image_file, query):
-    raw_image = Image.open(image_file).convert("RGB")
-    inputs = processor(images=raw_image, text=query, return_tensors="pt").to(device)
+    # raw_image = Image.open(image_file).convert("RGB")
+    inputs = processor(images=image_file, text=query, return_tensors="pt").to(device)
     
     output = model.generate(
         **inputs,

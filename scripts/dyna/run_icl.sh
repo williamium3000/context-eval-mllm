@@ -15,4 +15,4 @@
 export PYTHONPATH=./
 export CUDA_VISIBLE_DEVICES=0
 
-python examiners/dyna_conv_icl.py --dataset vg --p_mode None --outfile output/vg/dyna/icl.json
+python examiners/dyna_conv_icl_certainty.py --dataset vg --p_mode None --outfile output/vg/dyna/icl_certainty.json

@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     os.makedirs(args.outdir, exist_ok=True)
 
-    output_path = os.path.join(args.outdir, "factual_lsg.json")
+    output_path = os.path.join(args.outdir, os.path.basename(args.conv))
 
     # Load parser and evaluator
     device = "cuda" if torch.cuda.is_available() else "cpu"

@@ -1,6 +1,5 @@
 CONV_MODEL_PERSPECTIVE_PROMPT_VG_SIMGPLE = \
-"""Task: Your task is to have a multi-round conversation with a vision-language model regarding a given image. The responses from the vision-language model will be later to used to evaluate whether the model is hallucinating or faithful to the image (wheteher model generate responses contradictory to the content of the image).
-The image will be presented to you as a list of instances with attributes and relation of these instances. Each instance will be presented with specific coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
+"""Task: Your task is to have a multi-round conversation with a vision-language model regarding a given image. The image will be presented to you as a list of instances with attributes and relation of these instances. Each instance will be presented with specific coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
 
 Requirements:
 1. The conversation is multi-turn and open-ended. you need to ask questions based on both the image content and the history of the conversations. At each round of the conversation, you should only provide your part of the conversation and wait for the human to respond. 
@@ -15,6 +14,7 @@ Image information:
 Please respond as if you are having the conversation with the vision-language model directly.
 """
 
+
 CONV_MODEL_PERSPECTIVE_PROMPT_VG_SIMGPLE_INTERROGATE = \
 """Task: Your task is to have a multi-round conversation with a vision-language model regarding a given image. The responses from the vision-language model will be later to used to evaluate whether the model is hallucinating or faithful to the image (wheteher model generate responses contradictory to the content of the image).
 The image will be presented to you as a list of instances with attributes and relation of these instances. Each instance will be presented with specific coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
@@ -25,6 +25,41 @@ Requirements:
 3. Do NOT correct the model if it makes mistakes. However, you can ask further regarding the mistakes to confirm or interrogate the model. However, DO NOT DISCLOSE any given image information (captions and bboxes) directly to the human in your conversation. Also, DO NOT mention anything about the information source, e.g. bounding box.
 4. The whole conversation should COVER all the information regarding the image. If the human responses fail to cover some specific object, attributes or relations in the image, you should ask about it in the subsequent conversations.
 5. You can end the conversation naturally. If you feel like the conversation is coming to an end, you can end the conversation by outputing "END" ONLY. 
+
+Image information:
+{}
+
+Please respond as if you are having the conversation with the vision-language model directly.
+"""
+
+CONV_MODEL_PERSPECTIVE_PROMPT_VG_SIMGPLE_INTERROGATEV2 = \
+"""Task: Your task is to evaluate whether a vision-language model is hallucinating (i.e. generate responses contradictory to the content of the image) on the image.
+The image will be presented to you as a list of instances with attributes and relation of these instances. Each instance will be presented with specific coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
+You should perform a series of casual conversations with the model naturally by asking questions or making statements about the image and determine whether the model is hallucinating or not in its response.
+
+Requirements:
+1. The conversation is multi-turn and open-ended. you need to ask questions based on both the image content and the history of the conversations. At each round of the conversation, you should only provide your part of the conversation and wait for the human to respond. 
+2. You should make the conversation as natural as possible. Act as if you are a human having causal conversation directly with another human.
+3. Do NOT correct the model if it makes mistakes. However, you can ask further regarding the mistakes to confirm or interrogate the model. However, DO NOT DISCLOSE any given image information (captions and bboxes) directly to the human in your conversation. Also, DO NOT mention anything about the information source, e.g. bounding box.
+4. The whole conversation should COVER all the information regarding the image. If the human responses fail to cover some specific object, attributes or relations in the image, you should ask about it in the subsequent conversations.
+5. You can end the conversation naturally. If you feel like the conversation is coming to an end, you can end the conversation by outputing "END" ONLY. 
+
+Image information:
+{}
+
+Please respond as if you are having the conversation with the vision-language model directly.
+"""
+
+CONV_MODEL_PERSPECTIVE_PROMPT_VG_SIMGPLE_INTERROGATEV2_NO_COVERAGE = \
+"""Task: Your task is to evaluate whether a vision-language model is hallucinating (i.e. generate responses contradictory to the content of the image) on the image.
+The image will be presented to you as a list of instances with attributes and relation of these instances. Each instance will be presented with specific coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
+You should perform a series of casual conversations with the model naturally by asking questions or making statements about the image and determine whether the model is hallucinating or not in its response.
+
+Requirements:
+1. The conversation is multi-turn and open-ended. you need to ask questions based on both the image content and the history of the conversations. At each round of the conversation, you should only provide your part of the conversation and wait for the human to respond. 
+2. You should make the conversation as natural as possible. Act as if you are a human having causal conversation directly with another human.
+3. Do NOT correct the model if it makes mistakes. However, you can ask further regarding the mistakes to confirm or interrogate the model. However, DO NOT DISCLOSE any given image information (captions and bboxes) directly to the human in your conversation. Also, DO NOT mention anything about the information source, e.g. bounding box.
+4. You can end the conversation naturally. If you feel like the conversation is coming to an end, you can end the conversation by outputing "END" ONLY. 
 
 Image information:
 {}

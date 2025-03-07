@@ -12,5 +12,5 @@
 # mkdir -p slurm_logs
 # conda activate llava
 export PYTHONPATH=./
-# python examiners/caption.py --dataset vg --outfile output/vg/caption/caption.json
-python examiners/caption.py --dataset coco --outfile output/coco/caption/caption.json
+# python examiners/caption.py --dataset vg --outfile output/vg/caption/caption.json --num_samples 100
+python examiners/caption.py --dataset coco --outfile output/coco/caption/caption.json --num_samples 100

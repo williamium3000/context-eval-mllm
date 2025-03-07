@@ -1,0 +1,1 @@
+python graders/factual.py --conv $1 --outdir output/vg/factual_sg

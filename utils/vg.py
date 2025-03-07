@@ -4,10 +4,10 @@ import fsspec
 import aiohttp
 
 # Load the dataset with the specified download configuration
-objects = load_dataset("visual_genome","objects_v1.2.0", split="train", storage_options={'client_kwargs': {'timeout': aiohttp.ClientTimeout(total=7200)}})
-attributes = load_dataset("visual_genome","attributes_v1.2.0", split="train")
-relationships = load_dataset("visual_genome","relationships_v1.2.0", split="train")
-regions = load_dataset("visual_genome","region_descriptions_v1.2.0", split="train")
+objects = load_dataset("visual_genome","objects_v1.2.0", trust_remote_code=True, split="train", storage_options={'client_kwargs': {'timeout': aiohttp.ClientTimeout(total=7200)}})
+attributes = load_dataset("visual_genome","attributes_v1.2.0", split="train", trust_remote_code=True)
+relationships = load_dataset("visual_genome","relationships_v1.2.0", split="train", trust_remote_code=True)
+regions = load_dataset("visual_genome","region_descriptions_v1.2.0", split="train", trust_remote_code=True)
 
 # ['region_descriptions_v1.0.0', 
 # 'region_descriptions_v1.2.0', 

@@ -30,8 +30,7 @@ def eval_model(processor, model, image_file, query):
     inputs = processor(images=image_file, text=prompt, return_tensors='pt').to(0, torch.float16)
 
     output = model.generate(**inputs, max_new_tokens=256, do_sample=False)
-    print(output)
-    output = processor.decode(output[0][2:], skip_special_tokens=True)
+    output = processor.decode(output[0][2:], skip_special_tokens=True).split("ASSISTANT:")[-1].strip()
 
     return output
 

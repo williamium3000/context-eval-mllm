@@ -3199,10 +3199,9 @@ if __name__ == "__main__":
     print("starting conversation with model...")
     for sample in tqdm.tqdm(samples):
         persona_list = generate_persona(sample, llm_chat)
-        print(persona_list)
-        sample_to_save = copy.deepcopy(sample)
         for persona in persona_list:
             conv = dyna_conv(args, persona, sample, llm_chat, eval_func)
+            sample_to_save = copy.deepcopy(sample)
             del sample_to_save["image"]
             conv_dic = {"persona": persona, "conversation": conv}
             sample_to_save["conversations"] = conv

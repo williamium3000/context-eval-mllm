@@ -20,8 +20,7 @@ def dyna_conv(case, eval_func):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_base', type=str, default=None)
-    parser.add_argument('--model_path', type=str, default="liuhaotian/llava-v1.5-7b")
+    parser.add_argument('--model_path', type=str, default="Qwen/Qwen2.5-VL-3B-Instruct")
     parser.add_argument('--outfile', type=str)
     parser.add_argument('--dataset', type=str)
     parser.add_argument('--num_samples', type=int, default=20)

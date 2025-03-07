@@ -2,41 +2,50 @@ import re
 
 from PIL import Image
 
-from utils.vg import load_vg, format_case_vg
+from utils.utils import load_data
+from utils.vg import format_case_vg
+from utils.coco import format_case_coco
 from utils.llm import LLMChat
 from examiners import prompt as PROMPT
-from infer.infer_llava import load_model, eval_model
+from infer.loader import load_model
 import os
 import argparse
 import json
 import tqdm
 import copy
 
-SYSTEM_PERSONA_PROMPT = \
+SYSTEM_CONTEXT_PROMPT = \
 """
-Task: Your task is to generate a persona with a contextual background based on a given image. The persona will be simulated by a conversational agent designed to engage in casual conversation with a vision-language model, exploring the model's perception of the image.
-The given image will be presented to you as a list of objects with attributes and relation of these objects. Each objects will be presented with specific coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
-The persona is paired with a detailed description and an objective.
+Your task is to create a realistic scenario in which the given image is situated in the first-person view, i.e. you should imagine the image depicts your sight at the environment. This context should incorporate a background setting, the characters or objects involved, and a specific goal or objective that is relevant to the image. The context must be plausible, align with real-world experiences, and directly connect with the depicted elements in the image.
 
-Requirements: 
-1. Create a brief description of such a person with context. The persona is an image viewer.
-2. Your description should be short but precise (less than 50 words), only including the most representative traits of the persona and context (e.g., characteristic, motivation and identity).
-3. Define an objective that require the persona to query information grounded in the image, aligning with their traits.
-4. Create an initial question for a vision-language model based on these descriptions. The question should be answerable based on the given image.
+The image will be described through a list of objects, their attributes, and their spatial relationships, with each object represented by a set of coordinates in the image. These coordinates (x1, y1, x2, y2) will range from 0 to 1, corresponding to the top-left and bottom-right corners of each object.
 
-Format: You should generate a list of dictionaries, where each dictionary represents one persona, one context and a prompt. Each dictionary contains the following keys: persona, objective, question.
+Instructions:
+1. Contextualization: Develop a background scenario that is logical and directly relevant to the visual elements in the image. The background should describe the setting, time, and possible situation in which these objects or characters might exist.
+2. Goal: Identify a specific action, objective, or task that the subject(s) in the image are trying to accomplish, which should be coherent with the scene described.
+3. Diversity: For the given image, you should generate several different and diverse contexts.
+
+The response should be a list of dictionaries, where each dictionary represents one possible context for the image. Each dictionary should contain two keys:
+Background: A brief description (fewer than 50 words) of the setting, situation, or scenario that fits the image.
+goal: A clear description of the goal or task that is being pursued by the objects/subjects in the image.
+Format Example:
 [
-    {"persona": <persona desc with less than 50 words>, "objective": <context desc>, "question": <question>},
-    ...
-]
-
-Examples for generated personas (Enclose property name and value in double quotes):
-[    
-    {"persona": "As an interior designer, I analyze room layouts and decor choices.", "objective": "I aim to evaluate the arrangement of furniture and aesthetic harmony in the space.", "question": "How does the furniture arrangement contribute to the room’s overall balance?"},
-    {"persona": "As a teacher, I use it to associate textual descriptions with specific parts of an image for my lessons.", "objective": "I want to help students understand how textual descriptions map to visual elements.", "question": "Which part of the image corresponds to 'the blue car'?"},
-    {"persona": "As an office ergonomics specialist, I analyze workspace layouts and equipment usage.", "objective": "I aim to evaluate how the office setup supports efficiency, comfort, and productivity.", "question": "How does the placement of office equipment contribute to an ergonomic workspace?"},
-    {"persona": "As a content creator, I develop narratives based on visual content.", "objective": "I aim to craft engaging stories that combine both visual and textual elements.", "question": "What narrative can you create based on these sequential images?"},
-    {"persona": "As a blind person, I want to navigate with images for orientation.", "scenario": "I need assistance in identifying landmarks and obstacles from images for navigation purposes.", "question": "How to exit the room?"}
+    {
+        "background": "A bustling city street during rush hour, with pedestrians walking past stores and cars honking in traffic. The image depicts the first-person view of the character.",
+        "goal": "The character is trying to catch a bus before it leaves."
+    },
+    {
+        "background": "An open-plan corporate office during a busy afternoon, with cubicles neatly separated by dividing screens and personal photos decorating the workspace walls. The image depicts the first-person view of the character.",
+        "goal": "The character is trying to send an email to his boss."
+    }, 
+ {
+        "background": "A bright and inviting kitchen featuring wooden cabinetry, a cozy dining area, and fresh fruit adding a vibrant touch.  The image depicts the first-person view of the character",
+        "goal": "The character is hungry and tries to eat something."
+    },
+{
+        "background": "A modest bathroom showing signs of wear, featuring basic fixtures, white tiles, and a shower area needing repairs.",
+        "goal": "The character just woke up and wanted to wash his face."
+    }
 ]
 """
 
@@ -45,34 +54,35 @@ PERSONA_PROMPT = \
 Image information:
 {}
 
-Please generate five personas, objectives and questions. You MUST only respond in the format as described above. DO NOT RESPOND WITH ANYTHING ELSE.
+Please generate two contexts. You MUST only respond in the format as described above. DO NOT RESPOND WITH ANYTHING ELSE.
 """
 
 SYSTEM_CONV_PROMPT = \
 """
-Task: Your task is to simulate a person in context using the given persona with its objective and have conversations with a vision-language model. 
-Each conversation will be based on one single image. The given image will be presented to you as a list of objects with attributes and relation of these objects. Each objects will be presented with specific coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
-Given this information, you need to act as the given persona under the context, perform a series of casual conversations with the vision-language model naturally and ask questions about the image.
-The conversation is multi-turn and open-ended. You need to ask questions based on both the image content and the history of the conversations.
+Your task is to simulate a given context with the given image and have a conversation with a AI assistant which is a vision-language model, to assess whether the model will hallucinates under real-world scenarios performing realictic tasks.
+You need to have multiple conversations the model over multiple images. Each conversation will be based on one single image. The given image will be presented to you as a list of objects with attributes and relation of these objects. Each objects will be presented with specific coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
+Given this image, you need to perform a series of casual conversations with the vision-language model naturally and ask questions about the given detailed information of the image.
+The conversation is multi-turn and open-ended. you need to ask questions based on both the image content and the history of the conversations.
+
 
 Requirements:
 1. At each round of the conversation, you should only provide your part of the conversation and wait for the model to respond.
 2. The questions asked or the statements made must match the traits and objective of the assigned personas.
-3. You should make the conversation as natural as possible and act as if you are a human having conversation directly with another human.
-4. DO NOT DISCLOSE any given image information (captions and bboxes) directly to the human in your conversation. Also, DO NOT mention anthing about the information source, e.g. bounding box.
-5. The whole conversation should COVER all the information regarding the image. If the human responses fail to cover some specific object, attributes or relations in the image, you should ask about it in the subsequent conversations.
-6. You can end the conversation naturally. If you feel like the conversation is coming to an end, you can end the conversation by outputing "END" ONLY. 
+
+1. You should ask questions based on the given context and goal. DO NOT ask questions that are not faithful to your characters and contexts. The question you ask should also be based on both the image content and the history of the conversations.
+1. The conversation is multi-turn and open-ended. At each round of the conversation, you should only provide your part of the conversation and wait for the human to respond. 
+2. You should make the conversation as natural as possible. Act as if you are a human having causal conversation directly with another human. 
+3. Do NOT correct the model if it makes mistakes. However, you can ask further regarding the mistakes to confirm or interrogate the model. However, DO NOT DISCLOSE any given image information (captions and bboxes) directly to the human in your conversation. Also, DO NOT mention anything about the information source, e.g. bounding box.
 
 You will be given multiple images, and you need to have multiple conversations with the vision-language model. Once you are given the information of the image, you should start the conversation about this image. 
 """
 
 CONV_PROMPT = \
 """
-Persona: {}
+The given context is
+background: {}
 
-Objective: {}
-
-Initial question: {}
+objective: {}
 
 Image information:
 {}
@@ -3079,21 +3089,36 @@ icl_cases = [
 ]
 
 ICLs = [
-    {"role": "user", "content": CONV_PROMPT.format("As an office ergonomics specialist, I analyze workspace layouts and equipment usage.", "I aim to evaluate how the office setup supports efficiency, comfort, and productivity.", "Describe the workspace setup and how it might impact ergonomics.", format_case_vg(icl_cases[0]))},
-    {"role": "assistant", "content": "Describe the workspace setup and how it might impact ergonomics."},
+    {"role": "user", "content": CONV_PROMPT.format(
+        "A quiet afternoon in a corporate office, surrounded by neatly arranged cubicles, personal photos on dividing screens, and various electronics neatly placed on desks. A female coworker is calmly working at her computer.", "I aim to evaluate how the office setup supports efficiency, comfort, and productivity.", 
+        "The character is trying to send an email to the his boss.", 
+        format_case_vg(icl_cases[0]))},
+    {"role": "assistant", "content": "Alright, let's get this email drafted for my boss. Can you quickly confirm if the monitor is turned on or off before I start?"},
     {"role": "user",
-     "content": "The workspace includes a desk, an adjustable chair, and a monitor positioned at eye level."},
+     "content": "The monitor is turned off."},
     {"role": "assistant",
-     "content": "What lighting conditions are present, and how might they affect visibility and strain?"},
+     "content": "Do you happen to see where the switch button for the computer is located?"},
     {"role": "user",
-     "content": "There is a desk lamp providing direct lighting, and a window allowing natural light."},
-    {"role": "assistant", "content": "Explain how the monitor placement interacts with the user’s line of sight."},
+     "content": "Yes. It's under the table."},
+    {"role": "assistant", "content": "Great, I'll turn it on from there. Can you check if the keyboard and mouse are properly connected or if they’re wireless?"},
     {"role": "user",
-     "content": "The monitor is slightly tilted upward, positioned at a comfortable viewing height."},
+     "content": "They are not wireless but they are indeed properly connected."},
     {"role": "assistant",
-     "content": "Are there any objects that could cause obstruction or create unnecessary strain?"},
+     "content": "Perfect, thanks for checking. Could you tell me exactly where the keyboard and mouse are positioned in the image?"},
     {"role": "user",
-     "content": "There is a stack of books near the keyboard, which might interfere with arm movement."},
+     "content": "They are positioned at the center of the table."},
+    {"role": "assistant",
+     "content": "That's good to know—they're easily reachable. Do you notice if there's a telephone near the keyboard and mouse, or is it placed somewhere else on the desk?"},
+    {"role": "user",
+     "content": "Yes. There is a black telephon to the right of the keyboard and mouse on the table."},
+    {"role": "assistant",
+     "content": "Perfect placement! That should make multitasking easier. By the way, is there a notepad or pen nearby to jot down quick notes while sending this email?"},
+    {"role": "user",
+     "content": "I don't see any pen or notepad in insight."},
+    {"role": "assistant",
+     "content": "Hmm, I'll need to grab one then. Do you see a drawer or filing cabinet nearby where stationary items like pens and notepads might be stored?"},
+    {"role": "user",
+     "content": "Yes. They are at the bottom to the left of the image."},
     {"role": "assistant", "content": "END"}
     ]
 
@@ -3105,14 +3130,13 @@ def parse_json(text):
     return json.loads(json_text)
 
 
-def generate_persona(case, llm_chat, persona_type='dynamic'):
-    if persona_type == 'dynamic':
-        prompt = PERSONA_PROMPT.format(format_case_vg(case))
+def generate_persona(case, llm_chat):
+    prompt = PERSONA_PROMPT.format(format_case_vg(case))
     # elif persona_type == 'default':
     #     prompt = CONVERSATION_PERSONA_SELECTION_PROMPT.format(case)
 
     conversations = [
-        {"role": "system", "content": SYSTEM_PERSONA_PROMPT.strip()},
+        {"role": "system", "content": SYSTEM_CONTEXT_PROMPT.strip()},
         {"role": "user", "content": prompt.strip()}
     ]
 
@@ -3123,11 +3147,11 @@ def generate_persona(case, llm_chat, persona_type='dynamic'):
     return persona_list
 
 
-def dyna_conv(args, persona, case, llm_chat):
+def dyna_conv(args, persona, case, llm_chat, eval_func):
     conversations = [
                     {"role": "system", "content": SYSTEM_CONV_PROMPT},
                     *ICLs,
-                    {"role": "user", "content": CONV_PROMPT.format(persona["persona"], persona["objective"], persona["question"], format_case_vg(case))}
+                    {"role": "user", "content": CONV_PROMPT.format(persona["background"], persona["goal"], format_case_vg(case))}
     ]
     
     to_save = []
@@ -3141,21 +3165,7 @@ def dyna_conv(args, persona, case, llm_chat):
         conversations.append({"role": "assistant", "content": message_evaluator})
         image_file = case["image"]
         # image_file = Image.open(case["image"]).convert("RGB")
-        output = eval_model(model_name, tokenizer, model, image_processor, context_len, type('Args', (), {
-                                "model_path": model_path,
-                                "model_base": None,
-                                "model_name": model_name,
-                                "query": message_evaluator,
-                                "conv_mode": None,
-                                "image_file": image_file,
-                                "sep": ",",
-                                "load_in_8bit": False,
-                                "load_in_4bit": False,
-                                "temperature": 0.0,  # set as 0.0 for reproceduce
-                                "top_p": None,
-                                "num_beams": 1,
-                                "max_new_tokens": 512
-                            })())
+        output = eval_func(image_file=image_file, query=message_evaluator)
         output = output.lower()
         conversations.append({"role": "user", "content": output})
         # print(f"examiner: {message_evaluator}")
@@ -3169,34 +3179,36 @@ def dyna_conv(args, persona, case, llm_chat):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--debug", action="store_true")
+    parser.add_argument('--dataset', type=str)
+    parser.add_argument('--num_samples', type=int, default=20)
     parser.add_argument("--p_mode", type=str, default="certainty")
-    parser.add_argument('--model_base', type=str, default=None)
     parser.add_argument('--model_path', type=str, default="liuhaotian/llava-v1.5-7b")
     parser.add_argument('--outfile', type=str)
     args = parser.parse_args()
 
     os.makedirs(os.path.dirname(args.outfile), exist_ok=True)
     # need to figure out how to eval on different models
-    model_name, tokenizer, model, image_processor, context_len = load_model(args.model_path, args.model_base)
-    model_path = args.model_path
-    samples = load_vg(args.debug)
+    eval_func = load_model(args)
+    samples = load_data(args)
     # with open('output/vg_samples.json', 'r') as json_file:
     #     samples = json.load(json_file)
     
     llm_chat = LLMChat(model_name="gpt-4o")
     
+    to_save = []
     print("starting conversation with model...")
     for sample in tqdm.tqdm(samples):
         persona_list = generate_persona(sample, llm_chat)
-
-        conversation_list = []
+        print(persona_list)
+        sample_to_save = copy.deepcopy(sample)
         for persona in persona_list:
-            conv = dyna_conv(args, persona, sample, llm_chat)
+            conv = dyna_conv(args, persona, sample, llm_chat, eval_func)
+            del sample_to_save["image"]
             conv_dic = {"persona": persona, "conversation": conv}
-            conversation_list.append(conv_dic)
-        sample["conversations"] = conversation_list
-        del sample["image"]
+            sample_to_save["conversations"] = conv
+            sample_to_save["context"] = persona
+            to_save.append(sample_to_save)
+        
     
     with open(args.outfile, "w") as f:
-        json.dump(samples, f, indent=4)
+        json.dump(to_save, f, indent=4)

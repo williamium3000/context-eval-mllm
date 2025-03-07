@@ -30,7 +30,7 @@ def dyna_conv(args, case, llm_chat, eval_func):
         ICLs.extend(icl["conversations"])
         
     conversations = [
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "system", "content": sys_prompt},
                     *ICLs,
                     {"role": "user", "content": CONV_PROMPT.format(image_info)}
     ]

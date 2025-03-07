@@ -809,7 +809,7 @@
                     "synsets": [
                         "cabinet.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 5099,
@@ -823,7 +823,7 @@
                     "synsets": [
                         "drawer.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060251,
@@ -837,7 +837,7 @@
                     "synsets": [
                         "drawer.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 5101,
@@ -882,7 +882,7 @@
                     "synsets": [
                         "telephone.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 5104,
@@ -894,7 +894,7 @@
                         "office phone base"
                     ],
                     "synsets": [],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060282,
@@ -908,7 +908,7 @@
                     "synsets": [
                         "desk.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 5106,
@@ -922,7 +922,7 @@
                     "synsets": [
                         "mercantile_establishment.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 5107,
@@ -936,7 +936,7 @@
                     "synsets": [
                         "plug.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 5108,
@@ -950,7 +950,7 @@
                     "synsets": [
                         "plug.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 5109,
@@ -964,7 +964,7 @@
                     "synsets": [
                         "plug.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 5110,
@@ -978,7 +978,7 @@
                     "synsets": [
                         "plug.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060269,
@@ -1026,7 +1026,7 @@
                     "synsets": [
                         "wall.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 5114,
@@ -1056,7 +1056,7 @@
                     "synsets": [
                         "chain.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060281,
@@ -1088,7 +1088,7 @@
                     "synsets": [
                         "cable.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 5118,
@@ -1102,7 +1102,7 @@
                     "synsets": [
                         "floor.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 5119,
@@ -1116,7 +1116,7 @@
                     "synsets": [
                         "cable.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060261,
@@ -1132,7 +1132,7 @@
                     "synsets": [
                         "mercantile_establishment.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060252,
@@ -1162,7 +1162,7 @@
                     "synsets": [
                         "wall.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060277,
@@ -1177,7 +1177,7 @@
                     "synsets": [
                         "hair.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060242,
@@ -1207,7 +1207,7 @@
                         "white t-shirt"
                     ],
                     "synsets": [],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060289,
@@ -1237,7 +1237,7 @@
                     "synsets": [
                         "booth.n.02"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060290,
@@ -1252,7 +1252,7 @@
                     "synsets": [
                         "partition.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060292,
@@ -1266,7 +1266,7 @@
                     "synsets": [
                         "picture.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060294,
@@ -1297,7 +1297,7 @@
                     "synsets": [
                         "computer.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060295,
@@ -1311,7 +1311,7 @@
                     "synsets": [
                         "cable.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060297,
@@ -1325,7 +1325,7 @@
                     "synsets": [
                         "wall.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060296,
@@ -1339,7 +1339,7 @@
                     "synsets": [
                         "photograph.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060248,
@@ -1369,7 +1369,7 @@
                     "synsets": [
                         "handle.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060299,
@@ -1383,7 +1383,7 @@
                     "synsets": [
                         "floor.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060300,
@@ -1397,7 +1397,7 @@
                     "synsets": [
                         "necklace.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060245,
@@ -1411,7 +1411,7 @@
                     "synsets": [
                         "key.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060301,
@@ -1425,7 +1425,7 @@
                     "synsets": [
                         "desk.n.01"
                     ],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060247,
@@ -1437,7 +1437,7 @@
                         "computer tower"
                     ],
                     "synsets": [],
-                    "attributes": None
+                    "attributes": null
                 },
                 {
                     "object_id": 1060249,
@@ -2992,7 +2992,7 @@
                         ]
                     }
                 }
-            ],
+            ]
         },
         "conversations": [
             {"role": "assistant", "content": "Alright, let's start this conversation. I'm looking at a scene here, and I'm curious about a few things. Can you tell me if about the man in the image wearing a blue hat?"},

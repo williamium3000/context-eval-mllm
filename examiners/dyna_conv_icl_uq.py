@@ -1,9 +1,9 @@
-from PIL import Image
-
-from utils.vg import load_vg, format_case_vg
+from utils.utils import load_data
+from utils.vg import format_case_vg
+from utils.coco import format_case_coco
 from utils.llm import LLMChat, parse_json
 from examiners import prompt as PROMPT
-from infer.infer_llava import load_model, eval_model
+from infer.loader import load_model
 import os
 import argparse
 import json
@@ -3056,10 +3056,7 @@ ICLs = [
     {"role": "assistant", "content": "END"}
     ]
 
-print(format_case_vg(icl_cases[0]))
-
-
-def dyna_conv(args, case, llm_chat):
+def dyna_conv(args, case, llm_chat, eval_func):
     conversations = [
                     {"role": "system", "content": SYSTEM_PROMPT},
                     *ICLs,
@@ -3077,21 +3074,7 @@ def dyna_conv(args, case, llm_chat):
         conversations.append({"role": "assistant", "content": message_evaluator})
         image_file = case["image"]
         # image_file = Image.open(case["image"]).convert("RGB")
-        output = eval_model(model_name, tokenizer, model, image_processor, context_len, type('Args', (), {
-                                "model_path": model_path,
-                                "model_base": None,
-                                "model_name": model_name,
-                                "query": message_evaluator,
-                                "conv_mode": None,
-                                "image_file": image_file,
-                                "sep": ",",
-                                "load_in_8bit": False,
-                                "load_in_4bit": False,
-                                "temperature": 0.0,  # set as 0.0 for reproceduce
-                                "top_p": None,
-                                "num_beams": 1,
-                                "max_new_tokens": 512
-                            })())
+        output = eval_func(image_file=image_file, query=message_evaluator)
         output = output.lower()
         conversations.append({"role": "user", "content": output})
         print(f"examiner: {message_evaluator}")
@@ -3105,7 +3088,8 @@ def dyna_conv(args, case, llm_chat):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--debug", action="store_true")
+    parser.add_argument('--dataset', type=str)
+    parser.add_argument('--num_samples', type=int, default=20)
     parser.add_argument("--p_mode", type=str, default="certainty")
     parser.add_argument('--model_path', type=str, default="liuhaotian/llava-v1.5-7b")
     parser.add_argument('--outfile', type=str)
@@ -3113,9 +3097,8 @@ if __name__ == "__main__":
 
     os.makedirs(os.path.dirname(args.outfile), exist_ok=True)
     # need to figure out how to eval on different models
-    model_name, tokenizer, model, image_processor, context_len = load_model(args.model_path, args.model_base)
-    model_path = args.model_path
-    samples = load_vg(args.debug)
+    eval_func = load_model(args)
+    samples = load_data(args)
     # with open('output/vg_samples.json', 'r') as json_file:
     #     samples = json.load(json_file)
     
@@ -3123,10 +3106,10 @@ if __name__ == "__main__":
     
     print("starting conversation with model...")
     for sample in tqdm.tqdm(samples):
-        conv = dyna_conv(args, sample, llm_chat)
+        conv = dyna_conv(args, sample, llm_chat, eval_func)
         sample["conversations"] = conv
         # print(conv)
         del sample["image"]
     
-        with open(args.outfile, "w") as f:
-            json.dump(samples, f, indent=4)
+    with open(args.outfile, "w") as f:
+        json.dump(samples, f, indent=4)

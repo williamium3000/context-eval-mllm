@@ -1,5 +1,6 @@
 from .infer_llava import eval_model as eval_model_llava
 from .infer_blip2 import eval_model as eval_model_blip2
+from .infer_qwenvl2d5 import eval_model as eval_model_qwenvl2d5
 from functools import partial
 
 import torch
@@ -25,7 +26,21 @@ def load_model(args):
         )
         model.to(device)
         return partial(eval_model_blip2, model=model, processor=processor)
-    
-    
+    elif "Qwen2.5-VL" in args.model_path:
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            args.model_path, torch_dtype="auto", device_map="auto"
+        )
+
+        # We recommend enabling flash_attention_2 for better acceleration and memory saving, especially in multi-image and video scenarios.
+        # model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+        #     "Qwen/Qwen2.5-VL-3B-Instruct",
+        #     torch_dtype=torch.bfloat16,
+        #     attn_implementation="flash_attention_2",
+        #     device_map="auto",
+        # )
+
+        # default processer
+        processor = AutoProcessor.from_pretrained(args.model_path)
+        return partial(eval_model_qwenvl2d5, model=model, processor=processor)
     else:
         raise NotImplementedError

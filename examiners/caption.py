@@ -6,24 +6,10 @@ import json
 import tqdm
 import copy
 
-def dyna_conv(case):
+def dyna_conv(case, eval_func):
     message_evaluator = "Please provide a detailed description."
     image_file = case["image"]
-    output = eval_model(model_name, tokenizer, model, image_processor, context_len, type('Args', (), {
-                            "model_path": model_path,
-                            "model_base": None,
-                            "model_name": model_name,
-                            "query": message_evaluator,
-                            "conv_mode": None,
-                            "image_file": image_file,
-                            "sep": ",",
-                            "load_in_8bit": False,
-                            "load_in_4bit": False,
-                            "temperature": 0.0,  # set as 0.0 for reproceduce
-                            "top_p": None,
-                            "num_beams": 1,
-                            "max_new_tokens": 512
-                        })())
+    output = eval_func(image_file=image_file, query=message_evaluator)
     output = output.lower()
     to_save = [
         {"round_id": 0, "prompt": "Please provide a brief description.", "response": output}
@@ -43,13 +29,12 @@ if __name__ == "__main__":
 
     os.makedirs(os.path.dirname(args.outfile), exist_ok=True)
     # need to figure out how to eval on different models
-    model_name, tokenizer, model, image_processor, context_len = load_model(args.model_path, args.model_base)
-    model_path = args.model_path
+    eval_func = load_model(args)
     samples = load_data(args)
     
     print("starting conversation with model...")
     for sample in tqdm.tqdm(samples):
-        conv = dyna_conv(sample)
+        conv = dyna_conv(sample, eval_func)
         sample["conversations"] = conv
         del sample["image"]
     

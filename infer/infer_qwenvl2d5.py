@@ -55,10 +55,7 @@ if __name__ == "__main__":
     parser.add_argument('--infile', type=str, required=True)
     parser.add_argument('--outfile', type=str, required=True)
     parser.add_argument('--img_dir', type=str, required=True)
-    parser.add_argument('--model_path', type=str, default="Qwen/Qwen-VL-Chat",
-                        choices=[
-                            "Qwen/Qwen-VL-Chat"
-                            ])
+    parser.add_argument('--model_path', type=str, default="Qwen/Qwen2.5-VL-3B-Instruct")
     args = parser.parse_args()
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         "Qwen/Qwen2.5-VL-3B-Instruct", torch_dtype="auto", device_map="auto"

@@ -5,6 +5,7 @@ import os
 
 from openai import AzureOpenAI, OpenAI
 from dotenv import load_dotenv
+from pydantic import BaseModel
 
 load_dotenv(".env")
 
@@ -33,7 +34,7 @@ class LLMChat:
             self.client = AzureOpenAI(
                 azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT"), 
                 api_key=os.getenv("AZURE_OPENAI_KEY"),  
-                api_version="2024-02-15-preview")
+                api_version="2025-01-01-preview")
             self.model = os.getenv("AZURE_OPENAI_DEPLOYNAME", self.model)
         assert self.model is not None, "Model name is not provided."
         
@@ -43,11 +44,14 @@ class LLMChat:
         print(f"patience: {patience}")
         print("*" * 100)
         
-    def chat(self, messages, parser_fn, **kwargs):
+    def chat(self, messages, parser_fn, response_format=None, **kwargs):
         count = 0
         while True:
             try:
-                response = self._get_response(messages, **kwargs)
+                if response_format:
+                    response = self._get_structured_response(messages, response_format, **kwargs)
+                else:
+                    response = self._get_response(messages, **kwargs)
                 if parser_fn is None:
                     return response
                 else:
@@ -70,6 +74,16 @@ class LLMChat:
             **kwargs
         )
         return completion.choices[0].message.content
+
+    def _get_structured_response(self, messages, response_format, **kwargs):
+        completion = self.client.beta.chat.completions.parse(
+            model=self.model,
+            messages=messages,
+            response_format=response_format,
+            **kwargs
+        )
+
+        return completion.choices[0].message.parsed
     
 
 if __name__ == "__main__":
@@ -78,5 +92,13 @@ if __name__ == "__main__":
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "which one is larger? 1.11 or 1.9"}
     ]
-    response = agent.chat(messages, None)
+
+    # response = agent.chat(messages, None)
+    # print(response)
+
+    class Response(BaseModel):
+        response: str
+        question_type: str
+
+    response = agent.chat(messages,None, Response)
     print(response)

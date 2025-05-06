@@ -2,19 +2,19 @@ from collections import Counter
 
 from PIL import Image
 
-from utils.vg import format_case_vg, get_object_info
-# from utils.vg import load_vg
+from examiners.dyna_conv_icl_fake_node import generate_fake_node, NODE_CONV_ICLs, NODE_CONV_SYSTEM_PROMPT, object_conv, \
+    ResponseFormat
+from utils.vg import get_object_info
+from utils.vg import load_vg
 from utils.llm import LLMChat, parse_json
 from infer.infer_llava import load_model, eval_model
 import os
 import argparse
 import json
 import tqdm
-from pydantic import BaseModel
 
 CONV_SYSTEM_PROMPT = \
-    """
-Task: Your task is to have multiple turns of conversations with a vision-language model. The conversation will be based on one single image. The given image will be presented to you as a list of object instance(s) with attributes and relation of these objects. Each objects will be presented with normalized coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
+    """Task: Your task is to have multiple turns of conversations with a vision-language model. The conversation will be based on one single image. The given image will be presented to you as a list of object instance(s) with attributes and relation of these objects. Each objects will be presented with normalized coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
 Given this image, you need to perform a series of casual conversations with the vision-language model naturally and ask questions about the given detailed information of the image.
 The conversation is multi-turn and open-ended. At each round of the conversation, you will receive object instance(s) along with their attributes and relations. You must ask questions and generate follow-ups based on the object instance(s) and the conversation history for the same image.
 
@@ -33,11 +33,10 @@ Requirements:
 12. Once all details about the provided object instance(s) have been discussed and the conversation turn is complete, output `"END"` and move to the next conversation turn.
 
 You will be given multiple objects' information for one image, and you need to have multiple turns conversations with the vision-language model. Once you are given the information of the object instance(s), you should start the conversation about this image. 
-"""
+""".strip()
 
 CONV_PROMPT = \
-    """
-Object information:
+    """Object information:
 {}
 
 Please respond as if you are having the conversation with the vision-language model directly. 
@@ -45,6 +44,7 @@ Once all details about the provided object instance(s) have been discussed acros
 """.strip()
 
 CONV_ICLs = [
+{"role": "user", "content": "Image 1"},
     {"role": "user", "content": CONV_PROMPT.format(
         'Instance(s):\npen, attributes: [blue, yellow, black]\ntable\ntelephone, attributes: [black]\nphone, attributes: [black]\nRelations between the above instances:\npen on desk\npen next to phone\npen next to telephone')},
     {"role": "assistant", "content": "What do you observe on the table?"},
@@ -69,168 +69,71 @@ CONV_ICLs = [
     {"role": "assistant", "content": "END"}
 ]
 
-NODE_SYSTEM_PROMPT = f"""
-Task: You are given a structured scene graph with object instances, attributes and their relationships.
-Your task is to generate a **fake object node** that is not in the original scene, but would have a **high likelihood of co-occurring** with the current objects and relations in everyday scenes or common sense.
 
-Requirements:
-1. The fake node must:
-   - Have a name that does NOT already appear in the current scene.
-   - Include at least one realistic attribute.
-   - Be involved in at least one relation with an existing object instance from the scene.
-2. The fake object must be contextually appropriate and visually plausible.
-3. The output must include only the name of the fake object, its attributes, and its relation(s) to real object(s) from the current scene.
-4. Do not include any explanation or surrounding text.
-
-Output Formatting Instructions:
-1. List each fake object and its related real object(s) in "Instance(s)" section using the format below. Include all real objects if multiple are involved in the relation:
-<object>, attributes: <comma-separated attributes>
-2. In the "Relations between the above instances" section, write **each relation on a new line**, including multiple relations if applicable:
-  <fake object> <predicate> <real object> or <real object> <predicate> <fake object>
-  
-Output Format:
-Instance(s):
-<fake object>, attributes: <comma-separated attributes>
-<real object>, attributes: <comma-separated attributes>
-<real object>, attributes: <comma-separated attributes>
-
-Relations between the above instances:
-<fake object> <predicate> <real object>
-<real object> <predicate> <fake object>
-""".strip()
-
-
-NODE_ICLs = [
-    {"role": "user", "content":
-'''Instances:
-backpack, bbox: (0.45, 0.60, 0.54, 0.74), attributes: silver
-man, bbox: (0.41, 0.53, 0.58, 0.96), attributes: walking, white
-car, bbox: (0.30, 0.58, 0.47, 0.79), attributes: red, parked
-road, bbox: (0.00, 0.54, 0.47, 1.00), attributes: grey
-
-Relation between the above instances:
-man wears backpack
-car parked on road
-'''
-     },
-    {"role": "assistant", "content":
-'''
-Instance(s):
-traffic cone, attributes: orange, plastic
-car, attributes: red, parked
-road, attributes: grey
-
-Relations between the above instances:
-traffic cone on road
-traffic cone next to car
-'''},
-{"role": "user", "content":
-'''Instance(s):
-bag, normalized bbox: (0.51, 0.80, 0.61, 0.94), attributes: plastic, clear
-fruit, normalized bbox: (0.56, 0.86, 0.60, 0.95), attributes: sliced
-fruit, normalized bbox: (0.54, 0.85, 0.56, 0.93), attributes: sliced
-
-Relations between the above instances:
-fruit inside of bag
-fruit inside of bag
-'''},
-    {"role": "assistant", "content":
-'''
-Instance(s):
-knife, attributes: metal, sharp
-bag, attributes: plastic, clear
-
-Relations between the above instances:
-knife next to bag
-'''}
-]
-
-NODE_CONV_SYSTEM_PROMPT = \
-'''
-Task: Your task is to have multiple turns of conversations with a vision-language model. The conversation will be based on one single image. The given image will be presented to you as a list of object instance(s) with attributes and relation of these objects. Each objects will be presented with normalized coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
-You will be given one **fake object instance** that do NOT exist in the image and its relations with real objects. Your goal is to have a natural conversation with the vision-language model by asking questions about the fake object. The questions should intentionally create **contradictions** or be **unanswerable** due to false premises.
-The conversation is multi-turn and open-ended. At each round, you will receive object instance(s) along with their attributes and relations. You must ask questions and generate follow-ups based on the object instance(s) and the history of the conversation for the same image.
-
-1. **Contradiction questions** is answerable based on the given image, but factually wrong (e.g., asking if a non-existent object is present).  
-2. **Unanswerable questions** is based on a false premise that assumes the fake object exists and asks about its attributes or relations. These questions cannot be answered meaningfully. The only correct response should point out that the fake object doesn’t exist.  
-
-Requirements:
-1. At each round of the conversation, only provide your part of the conversation and wait for the human to respond.
-2. Make the conversation as natural and casual as possible — speak as if you are a human chatting with another human.
-3. DO NOT DISCLOSE any image information (e.g., attributes, relations, bounding boxes) to the human, nor mention anything about the source of the information.
-4. Do not correct the human or ask for confirmation, even if their response contains incorrect information.
-5. Only ask questions that can be verified based on the given fake object instance and its relations. Avoid speculative questions (e.g., about feelings, atmosphere, thoughts).
-6. Each turn should aim to **fully cover all details** of the provided fake object, including its attributes and relations. Ask appropriate follow-up questions to cover all aspects.
-7. If the user’s response is vague or ambiguous, **repeat or paraphrase** the previous question to encourage clarification. Do not correct them even if they're wrong.
-8. If the user brings up objects **not included** in the current object information, **do not** ask about those.
-9. Once all details about the provided fake object have been discussed and the conversation is complete, output `"END"`.
-
-Input format:
-Instance(s):  
-<fake object>, attributes: <comma-separated attributes>  
-<real object>, attributes: <comma-separated attributes>  
-
-Relations between the above instances:  
-<fake object> <predicate> <real object>  
-<real object> <predicate> <fake object>  
-'''
-
-NODE_CONV_ICLs = [
-    {"role": "user", "content":
-'''
-Instance(s):
-traffic cone, attributes: orange, plastic
-car, attributes: red, parked
-road, attributes: grey
-
-Relations between the above instances:
-traffic cone on road
-traffic cone next to car
-'''
-     },
-    {"role": "assistant", "content": "Is there a traffic cone in the image?"},
-{"role": "user", "content": "No."},
-    {"role": "assistant", "content": "How close are the traffic cone and the car?"},
-{"role": "user", "content": "No."},
-    {"role": "assistant", "content": "Is the traffic cone directly on the grey road or partially on the curb?"},
-    {"role": "user", "content": "There is no traffic cone in the image."},
-    {"role": "assistant", "content": "Are there any objects near the traffic cone?"},
-    {"role": "user", "content": "There is no traffic cone in the image."},
-    {"role": "assistant", "content": "What material is the traffic cone on the road made of?"},
-    {"role": "user", "content": "There is no traffic cone in the image."},
-    {"role": "assistant", "content": "END"}
-# {"role": "user", "content":
-# '''
-# Instance(s):
-# knife, attributes: metal, sharp
-# bag, attributes: plastic, clear
-#
-# Relations between the above instances:
-# knife next to bag
-# '''},
-#     {"role": "assistant", "content":
-# '''
-# '''}
+PARAPHRASE_ICLs = [
+    {"role": "user", "content": "What catches your eye about the metal bench placed in the park?"},
+    {"role": "assistant", "content": "What stands out to you about the metal bench located in the park?"},
+    {"role": "user", "content": "Can you describe the big tree growing close to the bench?"},
+    {"role": "assistant", "content": "How would you describe the large tree near the bench?"},
+    {"role": "user", "content": "How would you describe the surface and surroundings around the bench?"},
+    {"role": "assistant", "content": "What does the ground and area around the bench look like to you?"},
 ]
 
 
-class ResponseFormat(BaseModel):
-    response: str
-    question_type: str
+PARAPHRASE_SYSTEM_PROMPT = \
+'''Task: Given a list of questions, your goal is to paraphrase each question while preserving its original meaning. 
+Avoid changing the core intent or level of detail, but feel free to vary the wording and sentence structure for naturalness or clarity.
+
+Requirements
+1. For each question, generate one paraphrased version by rephrasing yes/no questions into wh-questions, using synonyms, altering the sentence structure or changing focus order (e.g., object before relation or relation before object).
+2. Ensure the paraphrased version is grammatically correct and sounds natural.
+3. Do not add, remove, or alter the core information or intent.
+4. Do not reference the original question or indicate that it was paraphrased.
+5. Output the paraphrased question only.
+'''
 
 
-def generate_fake_node(case, llm_chat):
-    formatted_sg = format_case_vg(case)
+def paraphrase_conv(case, llm_chat, object_index, node_info, qa_list):
+    to_save = []
 
-    conversations = [
-        {"role": "system", "content": NODE_SYSTEM_PROMPT},
-        *NODE_ICLs,
-        {"role": "system", "content": formatted_sg}
-    ]
+    for index, content in enumerate(qa_list):
+        if index % 2 == 0:
+            conversations = [
+                {"role": "system", "content": PARAPHRASE_SYSTEM_PROMPT},
+                *PARAPHRASE_ICLs,
+                {"role": "user", "content": content["content"]}]
 
-    fake_node_description = llm_chat.chat(conversations, None)
+            message_evaluator = llm_chat.chat(conversations, None)
 
-    return fake_node_description
+            # image_file = case["image"]
+            image_file = Image.open(case["image"]).convert("RGB")
+            output = eval_model(model_name, tokenizer, model, image_processor, context_len, type('Args', (), {
+                "model_path": model_path,
+                "model_base": None,
+                "model_name": model_name,
+                "query": message_evaluator,
+                "conv_mode": None,
+                "image_file": image_file,
+                "sep": ",",
+                "load_in_8bit": False,
+                "load_in_4bit": False,
+                "temperature": 0.0,  # set as 0.0 for reproceduce
+                "top_p": None,
+                "num_beams": 1,
+                "max_new_tokens": 512
+            })())
+            output = output.lower()
+            # output = 'A cat in the image.'
+
+            print(f"examiner: {message_evaluator}")
+            print(f"vlm model: {output}")
+
+            to_save.append(
+                {"repeated_object_index": object_index, "object_info": node_info, "prompt": message_evaluator,
+                 "response": output}
+            )
+
+    return to_save
 
 
 def sort_object_by_edge(case):
@@ -252,56 +155,8 @@ def sort_object_by_edge(case):
             seen.add(rel_key)
             relation_list.append(rel)
 
-    return sorted(sample['objects'], key=lambda obj: object_counts.get(obj["object_id"], 0), reverse=True), relation_list
-
-
-def object_conv(case, current_cov, object_round, formatted_info, to_save, model_name, tokenizer, model, image_processor, context_len, model_path, response_format=None):
-# def object_conv(case, current_cov, object_round, formatted_info, to_save, response_format=None):
-    while True:
-        message_evaluator = llm_chat.chat(current_cov, None, response_format)
-        if isinstance(message_evaluator, str):
-            current_cov.append({"role": "assistant", "content": message_evaluator})
-        else:
-            current_cov.append({"role": "assistant", "content": message_evaluator.response})
-
-        if "END" in current_cov[-1]["content"]:
-            break
-        # image_file = case["image"]
-        image_file = Image.open(case["image"]).convert("RGB")
-        output = eval_model(model_name, tokenizer, model, image_processor, context_len, type('Args', (), {
-            "model_path": model_path,
-            "model_base": None,
-            "model_name": model_name,
-            "query": message_evaluator if isinstance(message_evaluator, str) else message_evaluator.response,
-            "conv_mode": None,
-            "image_file": image_file,
-            "sep": ",",
-            "load_in_8bit": False,
-            "load_in_4bit": False,
-            "temperature": 0.0,  # set as 0.0 for reproceduce
-            "top_p": None,
-            "num_beams": 1,
-            "max_new_tokens": 512
-        })())
-        output = output.lower()
-        current_cov.append({"role": "user", "content": output})
-        if isinstance(message_evaluator, str):
-            print(f"examiner: {message_evaluator}")
-        else:
-            print(f"examiner: {message_evaluator.response}")
-        print(f"vlm model: {output}")
-
-        if isinstance(message_evaluator, str):
-            to_save.append(
-                {"object_index": object_round, "object_info": formatted_info, "prompt": message_evaluator,
-                 "response": output}
-            )
-        else:
-            to_save.append(
-                {"object_index": object_round, "object_info": formatted_info, "prompt": message_evaluator.response,
-                 "question_type": message_evaluator.question_type, "response": output}
-            )
-    return to_save, current_cov
+    return sorted(sample['objects'], key=lambda obj: object_counts.get(obj["object_id"], 0),
+                  reverse=True), relation_list
 
 
 def dyna_conv(args, case, llm_chat, model_name, tokenizer, model, image_processor, context_len, model_path,
@@ -310,6 +165,7 @@ def dyna_conv(args, case, llm_chat, model_name, tokenizer, model, image_processo
     conversations = [
         {"role": "system", "content": CONV_SYSTEM_PROMPT},
         *CONV_ICLs,
+        {"role": "user", "content": "Image 2"},
     ]
 
     object_round = 0
@@ -332,10 +188,19 @@ def dyna_conv(args, case, llm_chat, model_name, tokenizer, model, image_processo
             current_cov.append({"role": "user", "content": CONV_PROMPT.format(formatted_info)})
 
             covered_object_list += turn_covered_object_list
-            to_save, current_cov = object_conv(case, current_cov, object_round, formatted_info, to_save, model_name, tokenizer, model, image_processor, context_len, model_path)
+            to_save, current_cov = object_conv(case, llm_chat, current_cov, object_round, formatted_info, to_save,
+                                               model_name, tokenizer, model, image_processor, context_len, model_path)
+
+            # Consistency checking
+            if len(current_cov[len(conversations) + 1:-1]) > 1:
+                repeat_save = paraphrase_conv(case, llm_chat, object_round, formatted_info, current_cov[len(conversations)+1:-1])
+                to_save += repeat_save
+            else:
+                print('current_cov', current_cov)
+
             conversations += current_cov[len(conversations) + 1:-1]
 
-    # for fake node
+    # Add fake node for contradiction and unanswerable question
     for i in range(fake_node_num):
         object_round += 1
         formatted_info = generate_fake_node(sample, llm_chat)
@@ -344,9 +209,13 @@ def dyna_conv(args, case, llm_chat, model_name, tokenizer, model, image_processo
             *NODE_CONV_ICLs,
             {"role": "user", "content": formatted_info}
         ]
-        # current_cov = conversations.copy()
-        to_save, current_cov = object_conv(case, current_cov, object_round, formatted_info, to_save, model_name, tokenizer, model, image_processor, context_len, model_path, ResponseFormat)
-        conversations += current_cov
+
+        current_cov_len = len(current_cov)
+
+        to_save, fake_node_cov = object_conv(case, llm_chat, current_cov, object_round, formatted_info, to_save, model_name, tokenizer, model, image_processor, context_len, model_path, ResponseFormat)
+
+        repeat_save = paraphrase_conv(case, llm_chat, object_round, formatted_info, fake_node_cov[current_cov_len:-1])
+        to_save += repeat_save
 
     return to_save, conversations
 
@@ -364,16 +233,17 @@ if __name__ == "__main__":
     # need to figure out how to eval on different models
     model_name, tokenizer, model, image_processor, context_len = load_model(args.model_path, args.model_base)
     model_path = args.model_path
-    # samples = load_vg(args.debug)
-    with open('output/vg_samples.json', 'r') as json_file:
-        samples = json.load(json_file)
+    samples = load_vg(args.debug)
+    # with open('output/vg_samples.json', 'r') as json_file:
+    #     samples = json.load(json_file)
 
     llm_chat = LLMChat(model_name="gpt-4o")
 
     print("starting conversation with model...")
-    for sample in tqdm.tqdm(samples):
+    for sample in tqdm.tqdm(samples[1:3]):
         to_save, conv = dyna_conv(args, sample, llm_chat, model_name, tokenizer, model, image_processor, context_len,
                                   model_path)
+
         sample["conversations"] = to_save
         # sample["all_conversations"] = conv
 

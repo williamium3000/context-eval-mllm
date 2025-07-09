@@ -57,7 +57,7 @@ if __name__ == "__main__":
     model_name, tokenizer, model, image_processor, context_len = load_model(args.model_path, args.model_base)
     model_path = args.model_path
 
-    for sample in tqdm.tqdm(samples[:3]):
+    for sample in tqdm.tqdm(samples):
         conversation = sample["conversations"]
 
         id2prompts = {}

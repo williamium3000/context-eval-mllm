@@ -11,7 +11,7 @@ else:
     device = "cpu"
 
 
-def load_model(args):
+def load_model(args, tokenizer):
     model = LlamaForCausalLM.from_pretrained(
         args.llama_path,
         load_in_8bit=False,
@@ -38,7 +38,7 @@ def load_model(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--caption', type=str, default='data/vg.json')
+    # parser.add_argument('--caption', type=str, default='data/vg.json')
     parser.add_argument('--conv', type=str, default='output/vg/icl.json')
     parser.add_argument("--llama_path", type=str, default="graders/HaELM/llama-7b-hf")
     parser.add_argument("--checkpoint_path", type=str, default="graders/HaELM/checkpoint")
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     tokenizer = LlamaTokenizer.from_pretrained(args.llama_path)
-    model = load_model(args)
+    model = load_model(args, tokenizer)
 
     generation_config = GenerationConfig(
         temperature=0.1,
@@ -58,55 +58,55 @@ if __name__ == '__main__':
 
     caption_index = 0
     caption_info = json.load(open(args.caption, 'r'))
-    caption_dict = {}
-    for item in caption_info:
-        img_id = item["image_id"]
-        if img_id not in caption_dict:
-            caption_dict[img_id] = {
-                "image_id": img_id,
-                "captions": []
-            }
-        caption_dict[img_id]["captions"].append(item["caption"].strip())
+    # caption_dict = {}
+    # for item in caption_info:
+    #     img_id = item["image_id"]
+    #     if img_id not in caption_dict:
+    #         caption_dict[img_id] = {
+    #             "image_id": img_id,
+    #             "captions": []
+    #         }
+    #     caption_dict[img_id]["captions"].append(item["caption"].strip())
 
     conv_data = json.load(open(args.conv, 'r'))
 
     sample_result = []
-    conversation_result = []
+    sentence_result = []
     for sample in conv_data:
         result_list = []
         img_id = f'vg_{sample["image_id"]}'
         for conv in sample["conversations"]:
-            if img_id in caption_dict.keys():
-                captions = caption_dict[img_id]["captions"]
-            else:
-                captions = [region["phrase"] for region in sample["regions"]]
+            # if img_id in caption_dict.keys():
+            #     captions = caption_dict[img_id]["captions"]
+            # else:
+            captions = [region["phrase"] for region in sample["regions"]]
 
-            prompt = "reference captions:\n"
-            for caption in captions:
-                prompt += caption + '. '
-            prompt = prompt[:-1]
+            prompt_format = "reference captions:\n{ref}.\nour caption:\n{response}\nIs our caption accurate?\n"
+            caption_str = '. '.join(captions)
 
-            prompt += "\nour caption:\n"
-            prompt += conv["response"].strip()
-            prompt += "\nIs our caption accurate?\n"
-            inputs = tokenizer(prompt, return_tensors="pt")
-            input_ids = inputs["input_ids"].to(device)
-            with torch.no_grad():
-                generation_output = model.generate(
-                    input_ids=input_ids,
-                    generation_config=generation_config,
-                    return_dict_in_generate=True,
-                    output_scores=True,
-                    max_new_tokens=1,
-                )
+            conv["accurate"] = []
+            response_list = conv["response"].strip().replace('\n', '').split('.')
+            for respond_sentence in response_list:
+                if len(respond_sentence) > 0:
+                    prompt = prompt_format.format(ref=caption_str, response=respond_sentence)
+                    inputs = tokenizer(prompt, return_tensors="pt")
+                    input_ids = inputs["input_ids"].to(device)
+                    with torch.no_grad():
+                        generation_output = model.generate(
+                            input_ids=input_ids,
+                            generation_config=generation_config,
+                            return_dict_in_generate=True,
+                            output_scores=True,
+                            max_new_tokens=1,
+                        )
 
-            sentence = generation_output.sequences
-            sentence = tokenizer.decode(sentence.tolist()[0], skip_special_tokens=True)
-            result = sentence.split("\n")[-1].lower()
-            conv["accurate"] = result
-            result_list.append(result)
-            conversation_result.append(result)
-            # print(result)
+                    sentence = generation_output.sequences
+                    sentence = tokenizer.decode(sentence.tolist()[0], skip_special_tokens=True)
+                    result = sentence.split("\n")[-1].lower()
+
+                    conv["accurate"].append(result)
+                    result_list.append(result)
+                    sentence_result.append(result)
 
         if 'no' in result_list:
             sample_result.append('no')
@@ -116,5 +116,5 @@ if __name__ == '__main__':
     with open(args.outfile, "w") as f:
         json.dump(conv_data, f, indent=4)
 
-    print('Conversation level hallucination rate:', conversation_result.count('no')/len(conversation_result))
+    print('Sentence level hallucination rate:', sentence_result.count('no') / len(sentence_result))
     print('Sample level hallucination rate:', sample_result.count('no') / len(sample_result))

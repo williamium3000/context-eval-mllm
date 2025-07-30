@@ -45,10 +45,6 @@ if __name__ == "__main__":
         query = sample['question']
         image_file = os.path.join(args.img_dir, sample["image"])
         output = eval_model(model, processor, image_file, query)
-        print(sample["question_id"], output)
-
-        if len(output) > 1:
-            break
         sample["output"] = output
 
     os.makedirs(os.path.dirname(args.outfile), exist_ok=True)

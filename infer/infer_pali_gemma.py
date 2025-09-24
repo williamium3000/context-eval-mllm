@@ -11,8 +11,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def eval_model(processor, model, image_file, query):
-    raw_image = Image.open(image_file)
-    inputs = processor(images=raw_image, text=query, padding='longest', do_convert_rgb=True, return_tensors="pt").to(device)
+    # raw_image = Image.open(image_file)
+    inputs = processor(images=image_file, text=query, padding='longest', do_convert_rgb=True, return_tensors="pt").to(device)
     inputs = inputs.to(dtype=model.dtype)
 
     with torch.no_grad():

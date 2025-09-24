@@ -19,10 +19,36 @@ regions = load_dataset("visual_genome","region_descriptions_v1.2.0", split="trai
 assert len(objects) == len(attributes) == len(relationships) == len(regions)
 
 def load_sample_vg(idx):
-    sample = objects[idx]
-    sample["attributes"] = attributes[idx]["attributes"]
-    sample["relationships"] = relationships[idx]["relationships"]
-    sample["regions"] = regions[idx]["regions"]
+    sample = objects[idx] 
+    attrs = attributes[idx]["attributes"]
+    rels = relationships[idx]["relationships"]
+    regs = regions[idx]["regions"]
+    assert len(sample["objects"]) == len(attrs)
+    cur_objects = {}
+    for i, obj in enumerate(attrs):
+        object_id = obj["object_id"]
+        obj["object_id"] = i
+        cur_objects[object_id] = obj
+    
+    new_rels = []
+    for rel in rels:
+        del rel["relationship_id"]
+        sub = rel["subject"]
+        obj = rel["object"]
+        
+        new_sub_id = cur_objects[sub["object_id"]]
+        new_obj_id = cur_objects[obj["object_id"]]
+        rel["subject"] = new_sub_id
+        rel["object"] = new_obj_id
+        new_rels.append(rel)        
+
+    scene_graph = {
+        "objects": cur_objects,
+        "relationships": new_rels,
+        "regions": regs
+    }
+    del sample["objects"]
+    sample["sg"] = scene_graph
     return sample
 
 
@@ -40,30 +66,26 @@ def load_vg(num_samples=None):
 
 def format_case_vg(case):
     formatted = "Instances:\n"
-    h = case["height"]
-    w = case["width"]
-        
-    objects = case["objects"]
-    attributes = {}
-    for attr in case["attributes"]:
-        if attr["attributes"] is None or len(attr["attributes"]) == 0:
-            continue
-        if attr["object_id"] not in attributes:
-            attributes[attr["object_id"]] = attr["attributes"]
-        else:
-            attributes[attr["object_id"]] += attr["attributes"]
+    H = case["height"]
+    W = case["width"]
     
-    relationships = case["relationships"]
-    for ins in objects:
+    sg = case["sg"]
+
+    for ori_id, ins in sg["objects"].items():
         object_id = ins["object_id"]
         x, y, w, h = ins['x'], ins['y'], ins['w'], ins['h']
-        x1, y1, x2, y2 = x / w, y / h, (x + w) / w, (y + h) / h
-        cur_attr = ", ".join(attributes.get(object_id, []))
-        formatted += f"{ins['names'][0]}, bbox: ({x1:.2f}, {y1:.2f}, {x2:.2f}, {y2:.2f}), attributes: {cur_attr}\n"
+        x1, y1, x2, y2 = x / W, y / H, (x + w) / W, (y + h) / H
+        if ins.get("attributes", []) is None or len(ins.get("attributes", [])) == 0:
+            cur_attr = "none"
+        else:
+            attrs = ins.get("attributes", [])
+            cur_attr = ", ".join(attrs)
+        formatted += f"instance {object_id}, {ins['names'][0]}, bbox: ({x1:.2f}, {y1:.2f}, {x2:.2f}, {y2:.2f}), attributes: {cur_attr}\n"
+    
     formatted += "\nRelation between the above instances:\n"
-    for rel in relationships:
-        formatted += f"{rel['subject']['names'][0]} {rel['predicate'].lower()} {rel['object']['names'][0]}\n"
+    for rel in sg["relationships"]:
+        formatted += f"{rel['subject']['names'][0]} (instance {rel['subject']['object_id']}) {rel['predicate'].lower()} {rel['object']['names'][0]} (instance {rel['object']['object_id']})\n"
         
     return formatted
 if __name__ == "__main__":
-    print(format_case_vg(load_vg(debug=True)[0]))
+    print(format_case_vg(load_vg(num_samples=5)[0]))

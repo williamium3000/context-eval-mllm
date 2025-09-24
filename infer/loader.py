@@ -1,15 +1,40 @@
-from .infer_llava import eval_model as eval_model_llava
-from .infer_blip2 import eval_model as eval_model_blip2
-from .infer_qwenvl2d5 import eval_model as eval_model_qwenvl2d5
+
 from functools import partial
-
 import torch
-from transformers import AutoProcessor, LlavaForConditionalGeneration, Blip2Processor, Blip2ForConditionalGeneration, Qwen2_5_VLForConditionalGeneration
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+
 
 def load_model(args):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if "opera" in args.model_path:
+        from .infer_opera import eval_model as eval_model_opera, setup_seeds, MODEL_EVAL_CONFIG_PATH, load_preprocess
+        from minigpt4.common.config import Config
+        from minigpt4.common.registry import registry
+        
+        model_name = args.model_path.split("/")[-1]
+        args = type('Args', (), {
+                                "model": model_name,
+                                "options": [],
+                            })()
+        args.cfg_path = MODEL_EVAL_CONFIG_PATH[model_name]
+        args.model = model_name
+        args.gpu_id = "0"
+        args.batch_size = 1
+        cfg = Config(args)
+        setup_seeds(cfg)
+
+        model_config = cfg.model_cfg
+        model_config.device_8bit = args.gpu_id
+        model_cls = registry.get_model_class(model_config.arch)
+        model = model_cls.from_config(model_config).to(device)
+        model.eval()
+        processor_cfg = cfg.get_config().preprocess
+        processor_cfg.vis_processor.eval.do_normalize = False
+        vis_processors, txt_processors = load_preprocess(processor_cfg)
+        return partial(eval_model_opera, model=model, args=args, image_processor=vis_processors)
     if "llava-1.5" in args.model_path:
+        from .infer_llava import eval_model as eval_model_llava
+        from transformers import LlavaForConditionalGeneration, AutoProcessor
         model = LlavaForConditionalGeneration.from_pretrained(
             args.model_path, 
             torch_dtype=torch.float16, 
@@ -18,8 +43,9 @@ def load_model(args):
 
         processor = AutoProcessor.from_pretrained(args.model_path)
         return partial(eval_model_llava, model=model, processor=processor)
-    
     elif "blip2" in args.model_path:
+        from .infer_blip2 import eval_model as eval_model_blip2
+        from transformers import Blip2Processor, Blip2ForConditionalGeneration
         processor = Blip2Processor.from_pretrained(args.model_path)
         model = Blip2ForConditionalGeneration.from_pretrained(
             args.model_path, torch_dtype=torch.float32
@@ -27,6 +53,8 @@ def load_model(args):
         model.to(device)
         return partial(eval_model_blip2, model=model, processor=processor)
     elif "Qwen2.5-VL" in args.model_path:
+        from .infer_qwenvl2d5 import eval_model as eval_model_qwenvl2d5
+        from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
         model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             args.model_path, torch_dtype="auto", device_map="auto"
         )
@@ -42,5 +70,114 @@ def load_model(args):
         # default processer
         processor = AutoProcessor.from_pretrained(args.model_path)
         return partial(eval_model_qwenvl2d5, model=model, processor=processor)
+    elif "Qwen2-VL" in args.model_path:
+        from .infer_qwenvl2 import eval_model as eval_model_qwenvl2
+        from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+        model = Qwen2VLForConditionalGeneration.from_pretrained(args.model_path, torch_dtype=torch.float16)
+        processor = AutoProcessor.from_pretrained(args.model_path)
+        model.to(device)
+        return partial(eval_model_qwenvl2, model=model, processor=processor)
+    elif "paligemma" in args.model_path:
+        from .infer_pali_gemma import eval_model as eval_model_pali_gemma
+        from transformers import PaliGemmaForConditionalGeneration, PaliGemmaProcessor
+        model = PaliGemmaForConditionalGeneration.from_pretrained(args.model_path, torch_dtype=torch.bfloat16)
+        processor = PaliGemmaProcessor.from_pretrained(args.model_path)
+        model.to(device)
+        return partial(eval_model_pali_gemma, model=model, processor=processor)
+    elif "instructblip" in args.model_path:
+        from .infer_instruct_blip import eval_model as eval_model_instruct_blip
+        from transformers import InstructBlipForConditionalGeneration, InstructBlipProcessor
+        model = InstructBlipForConditionalGeneration.from_pretrained(args.model_path)
+        processor = InstructBlipProcessor.from_pretrained(args.model_path)
+        model.to(device)
+        return partial(eval_model_instruct_blip, model=model, processor=processor)
+    elif "cogagent" in args.model_path:
+        from .infer_cogvlm import eval_model as eval_model_cogvlm
+        from transformers import AutoModelForCausalLM, LlamaTokenizer
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model_path,
+            torch_dtype=torch.float16,
+            low_cpu_mem_usage=True,
+            load_in_4bit=False,
+            trust_remote_code=True
+        ).to(device).eval()
+        tokenizer = LlamaTokenizer.from_pretrained("lmsys/vicuna-7b-v1.5")
+        
+        return partial(eval_model_cogvlm, model=model, tokenizer=tokenizer, torch_type=torch.bfloat16)
+    elif "Ovis2" in args.model_path:
+        from .infer_ovis2 import eval_model as eval_model_ovis2
+        from transformers import AutoModelForCausalLM
+        model = AutoModelForCausalLM.from_pretrained(args.model_path,
+                                             torch_dtype=torch.bfloat16,
+                                             multimodal_max_length=32768,
+                                             trust_remote_code=True).cuda()
+        model.to(device)
+        return partial(eval_model_ovis2, model=model)
+    elif "Phi-3.5" in args.model_path:
+        from .infer_phi3d5vl import eval_model as eval_model_phi3d5vl
+        from transformers import AutoModelForCausalLM, AutoProcessor
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model_path, 
+            device_map=device, 
+            trust_remote_code=True, 
+            torch_dtype="auto", 
+            _attn_implementation='flash_attention_2'    
+            )
+
+        # for best performance, use num_crops=4 for multi-frame, num_crops=16 for single-frame.
+        processor = AutoProcessor.from_pretrained(args.model_path, 
+            trust_remote_code=True, 
+            num_crops=4
+            ) 
+        return partial(eval_model_phi3d5vl, model=model, processor=processor)
+    elif "gemma-3" in args.model_path:
+        from .infer_gemma3 import eval_model as eval_model_gemma3
+        from transformers import AutoProcessor, Gemma3ForConditionalGeneration
+        model = Gemma3ForConditionalGeneration.from_pretrained(args.model_path, device_map="auto").eval()
+        processor = AutoProcessor.from_pretrained(args.model_path)
+        
+        return partial(eval_model_gemma3, model=model, processor=processor)
+    elif "Intern" in args.model_path:
+        from .infer_internvl3 import eval_model as eval_model_internvl3, split_model
+        from transformers import AutoModel, AutoTokenizer
+        device_map = split_model(args.model_path)
+        model = AutoModel.from_pretrained(
+            args.model_path,
+            torch_dtype=torch.bfloat16,
+            load_in_8bit=False,
+            low_cpu_mem_usage=True,
+            use_flash_attn=True,
+            trust_remote_code=True,
+            device_map=device_map).eval()
+        tokenizer = AutoTokenizer.from_pretrained(args.model_path, trust_remote_code=True, use_fast=False)
+        return partial(eval_model_internvl3, model=model, tokenizer=tokenizer)
+    elif "lpoi" in args.model_path:
+        from .infer_lpoi import eval_model as eval_model_lpoi
+        from transformers import AutoModelForVision2Seq, AutoProcessor
+        if "idefics2" in args.model_path:
+            model_name = "HuggingFaceM4/idefics2-8b"
+        else:
+            raise NotImplementedError
+        model = AutoModelForVision2Seq.from_pretrained(
+            model_name,
+            load_in_8bit=False,
+            device_map="auto",
+            torch_dtype=torch.bfloat16,
+        )
+
+        processor = AutoProcessor.from_pretrained(model_name, do_image_splitting=False)
+        model.load_adapter(args.model_path)
+        return partial(eval_model_lpoi, model=model, processor=processor)
+    elif "LLaVA-RLHF" in args.model_path:
+        from .infer_llava_rlhf import eval_model as eval_model_llava_rlhf
+        from .infer_llava_rlhf import load_pretrained_model
+        from peft import PeftModel
+        tokenizer, model, image_processor, context_len = load_pretrained_model(
+            f"{args.model_path}/sft_model", f"{args.model_path}/rlhf_lora_adapter_model", "llava-rlhf-13b-v1.5-336", True)
+        
+        model = PeftModel.from_pretrained(model, f"{args.model_path}/rlhf_lora_adapter_model")
+
+        return partial(eval_model_llava_rlhf, model=model, tokenizer=tokenizer, image_processor=image_processor)
+    
     else:
         raise NotImplementedError

@@ -1,4 +1,3 @@
-from infer.infer_llava import image_parser, load_images
 from llava.constants import (
     IMAGE_TOKEN_INDEX,
     DEFAULT_IMAGE_TOKEN,
@@ -27,10 +26,10 @@ from peft import PeftModel
 
 
 
-def eval_model(model_name, tokenizer, model, image_processor, context_len, args):
+def eval_model(tokenizer, model, image_processor, image_file, query):
     disable_torch_init()
 
-    qs = args.query
+    qs = query
     image_token_se = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN
     if IMAGE_PLACEHOLDER in qs:
         if model.config.mm_use_im_start_end:
@@ -43,15 +42,14 @@ def eval_model(model_name, tokenizer, model, image_processor, context_len, args)
         else:
             qs = DEFAULT_IMAGE_TOKEN + "\n" + qs
 
-    args.conv_mode = "llava_v0"
+    conv_mode = "llava_v0"
 
-    conv = conv_templates[args.conv_mode].copy()
+    conv = conv_templates[conv_mode].copy()
     conv.append_message(conv.roles[0], qs)
     conv.append_message(conv.roles[1], None)
     prompt = conv.get_prompt()
 
-    image_files = image_parser(args)
-    images = load_images(image_files)
+    images = [image_file]
     # images = [args.image_file.convert("RGB")]
     image_sizes = [x.size for x in images]
     images_tensor = process_images(
@@ -71,16 +69,15 @@ def eval_model(model_name, tokenizer, model, image_processor, context_len, args)
             input_ids,
             images=images_tensor,
             image_sizes=image_sizes,
-            do_sample=True if args.temperature > 0 else False,
-            temperature=args.temperature,
-            top_p=args.top_p,
-            num_beams=args.num_beams,
-            max_new_tokens=args.max_new_tokens,
+            do_sample=False,
+            temperature=0.0,
+            top_p=None,
+            num_beams=1,
+            max_new_tokens=256,
             use_cache=True,
         )
 
     outputs = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
-    
     return outputs
 
 
@@ -152,7 +149,7 @@ if __name__ == "__main__":
     for sample in tqdm.tqdm(samples):
         q = sample["question"]
         image_file = os.path.join(args.img_dir, sample["image"])
-        output = eval_model(args.model_name, tokenizer, model, image_processor, context_len, type('Args', (), {
+        output = eval_model(tokenizer, model, image_processor, context_len, type('Args', (), {
                                 "model_path": model_path,
                                 "model_base": None,
                                 "model_name": model_name,

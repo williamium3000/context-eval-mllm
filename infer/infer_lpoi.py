@@ -10,10 +10,11 @@ from transformers import AutoModelForVision2Seq, AutoProcessor
 
 
 def eval_model(model, processor, image_file, query):
-    images = Image.open(image_file)
+    # image = Image.open(image_file)
+    image = image_file
     data = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": query}]}]
     prompts = processor.apply_chat_template(data, add_generation_prompt=True)
-    inputs = processor(prompts, images, return_tensors="pt")
+    inputs = processor(prompts, image, return_tensors="pt")
     inputs = {k: v.to("cuda") for k, v in inputs.items()}
 
     generated_ids = model.generate(**inputs, max_new_tokens=500)

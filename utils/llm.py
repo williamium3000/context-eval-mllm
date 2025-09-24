@@ -9,10 +9,15 @@ from pydantic import BaseModel
 
 load_dotenv(".env")
 
-def parse_json(text):
+def parse_dict(text):
     pattern = r"{(.*)}"
     match = re.search(pattern, text, re.DOTALL)
     json_text = "{" + (match.group(1) if match else text) + "}"
+    return json.loads(json_text)
+def parse_json(text):
+    pattern = r"```json(.*)```"
+    match = re.search(pattern, text, re.DOTALL)
+    json_text = match.group(1) if match else text
     return json.loads(json_text)
 
 def parse_code(rsp):
@@ -44,7 +49,7 @@ class LLMChat:
         print(f"patience: {patience}")
         print("*" * 100)
         
-    def chat(self, messages, parser_fn, response_format=None, **kwargs):
+    def chat(self, messages, parser_fn, response_format=None, verbose=False, **kwargs):
         count = 0
         while True:
             try:
@@ -52,14 +57,16 @@ class LLMChat:
                     response = self._get_structured_response(messages, response_format, **kwargs)
                 else:
                     response = self._get_response(messages, **kwargs)
+                if verbose:
+                    print(response)
                 if parser_fn is None:
                     return response
                 else:
                     return parser_fn(response)
             except Exception as e:
                 print(e)
-                print("waiting 2 seconds before retrying...")
-                time.sleep(2)
+                print("waiting 1 second before retrying...")
+                time.sleep(1)
             count += 1
             if count > self.patience:
                 print("exceeded patience")

@@ -164,3 +164,4 @@ data/
 LLaVA/
 .DS_Store/
 visualization/
+work_dirs

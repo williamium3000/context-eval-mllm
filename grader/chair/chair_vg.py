@@ -285,6 +285,8 @@ if __name__ == '__main__':
     for sample in data:
         responses = [conv["response"] for conv in sample["conversations"]]
         sample["caption"] = " ".join(responses)
+        for k, v in sample["metadata"].items():
+            sample[k] = v
         
     chair_result = compute_chair(data, stemmed_object_dict)
     print_metrics(chair_result)

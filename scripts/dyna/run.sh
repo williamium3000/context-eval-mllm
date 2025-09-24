@@ -13,7 +13,7 @@
 # conda activate llava
 
 export PYTHONPATH=$PYTHONPATH:./:infer
-export CUDA_VISIBLE_DEVICES=6
+export CUDA_VISIBLE_DEVICES=1
 
 conda activate  /mnt/data/ztw_project/mmeval_envs/qwenvl2d5
 # python examiner/dyna_conv_v2.py --dataset vg --model_path Qwen/Qwen2.5-VL-3B-Instruct --outfile output/vg/dyna-v2/Qwen2.5-VL-3B-Instruct.json --num_samples 100
@@ -28,6 +28,8 @@ python examiner/dyna_conv_v2.py --dataset vg --model_path OpenGVLab/InternVL2_5-
 python examiner/dyna_conv_v2.py --dataset vg --model_path OpenGVLab/InternVL3-8B-Instruct  --outfile output/vg/dyna-v2/InternVL3-8B-Instruct.json --num_samples 100
 python examiner/dyna_conv_v2.py --dataset vg --model_path OpenGVLab/InternVL2-8B  --outfile output/vg/dyna-v2/InternVL2-8B.json --num_samples 100
 
+
+python examiner/dyna_conv_v2.py --dataset vg --model_path data/checkpoints/LLaVA-RLHF-13b-v1.5-336 --outfile output/vg/dyna-v2/LLaVA-RLHF-13b-v1.5-336.json --num_samples 100
 # python examiner/dyna_conv_v2.py --dataset vg --model_path microsoft/Phi-3.5-vision-instruct  --outfile output/vg/dyna-v2/Phi-3.5-vision-instruct.json --num_samples 100
 # python examiner/dyna_conv_v2.py --dataset vg --model_path Salesforce/blip2-flan-t5-xl  --outfile output/vg/dyna-v2/blip2-flan-t5-xl.json --num_samples 100
 # python examiner/dyna_conv_v2.py --dataset vg --model_path Salesforce/blip2-opt-2.7b  --outfile output/vg/dyna-v2/blip2-opt-2.7b.json --num_samples 100

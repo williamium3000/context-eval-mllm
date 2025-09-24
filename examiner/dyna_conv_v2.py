@@ -394,6 +394,9 @@ class EvalSample:
                 to_save_i.append(
                     {"round_id": r, "prompt": message_evaluator, "response":output, "q_type": Q_TYPE_MAPPING[type_id]}
                 )
+                if r >20:
+                    print("reached max rounds")
+                    break
             
             sample_to_save = copy.deepcopy(self.case)
             sample_to_save["conversations"] = to_save_i
@@ -408,15 +411,12 @@ class EvalSample:
 def load_cache(cache_file):
     """Load existing results from cache file if it exists."""
     if os.path.exists(cache_file):
-        try:
-            with open(cache_file, 'r') as f:
-                cached_data = json.load(f)
-            print(f"Loaded {len(cached_data)} cached results from {cache_file}")
-            return cached_data
-        except (json.JSONDecodeError, FileNotFoundError) as e:
-            print(f"Warning: Could not load cache file {cache_file}: {e}")
-            return []
-    return []
+        with open(cache_file, 'r') as f:
+            cached_data = json.load(f)
+        print(f"Loaded {len(cached_data)} cached results from {cache_file}")
+        return cached_data
+    else:
+        return []
 
 def save_cache(cache_file, data):
     """Save results to cache file."""
@@ -462,6 +462,7 @@ if __name__ == "__main__":
     # Load existing cache if provided
     if args.cache_file:
         cached_data = load_cache(args.cache_file)
+        print(cached_data)
         to_save.extend(cached_data)
         # Track which samples have already been processed
         for cached_item in cached_data:

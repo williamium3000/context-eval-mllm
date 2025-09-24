@@ -138,6 +138,7 @@ The question you generate should be strongly correlated with the context below (
 
 * Ask a natural, conversational question about the given content of the image.
 * The question must be strongly relevant to both the image and the context (background + goal). Keep the question consistent with the given background and goal or role that are assumed to be actively engaged in the situation.
+* Avoid asking repetitive or similar questions.
 * Avoid irrelevant, generic, or out-of-character questions.
 * Keep the question consistent with the role of someone actively engaged in the situation.
 * Only ask questions with **definite answers**. Do not ask ambiguous or subjective questions such as "what does this object add to the atmosphere?" or "What is the overall feeling of the image?".
@@ -390,9 +391,12 @@ class EvalSample:
                 to_save_i.append(
                     {"round_id": r, "prompt": message_evaluator, "response":output, "q_type": Q_TYPE_MAPPING[type_id]}
                 )
+                
+                if r >20:
+                    print("reached max rounds")
+                    break
             
             sample_to_save = copy.deepcopy(self.case)
-            print(sample_to_save["metadata"])
             sample_to_save["conversations"] = to_save_i
             sample_to_save["context"] = context
             del sample_to_save["image"]

@@ -50,10 +50,10 @@ def load_sample_vg(idx):
     del sample["objects"]
     sample["sg"] = scene_graph
     sample["metadata"] =  {
-            "objects": objects[idx],
-            "relationships": relationships[idx],
-            "regions": regions[idx],
-            "attributes": attributes[idx]
+            "objects": objects[idx]["objects"],
+            "relationships": relationships[idx]["relationships"],
+            "regions": regions[idx]["regions"],
+            "attributes": attributes[idx]["attributes"],
         }
     return sample
 

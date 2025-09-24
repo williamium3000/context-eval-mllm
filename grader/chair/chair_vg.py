@@ -285,7 +285,7 @@ if __name__ == '__main__':
     for sample in data:
         responses = [conv["response"] for conv in sample["conversations"]]
         sample["caption"] = " ".join(responses)
-    
+        
     chair_result = compute_chair(data, stemmed_object_dict)
     print_metrics(chair_result)
     save_hallucinated_words(args.cap_file, chair_result)

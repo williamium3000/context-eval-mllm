@@ -129,17 +129,18 @@ background: {}, goal: {}
 """
 
 REGULAR_CONV_PROMPT = \
-"""You are tasked with generating a *regular question* grounded in the provided image and context.
+"""Given the image content above, you are tasked with generating a regular question. 
+The question you generate should be strongly correlated with the context below (background + goal).
 
-* **Target node:** `{}`
-* **Context:** background: `{}`, goal: `{}`
+**Context:** background: `{}`, goal: `{}`
 
 **Instructions:**
 
-* Ask a natural, conversational question about the specified node.
-* The question must be strongly relevant to both the image and the context (background + goal).
+* Ask a natural, conversational question about the given content of the image.
+* The question must be strongly relevant to both the image and the context (background + goal). Keep the question consistent with the given background and goal or role that are assumed to be actively engaged in the situation.
 * Avoid irrelevant, generic, or out-of-character questions.
 * Keep the question consistent with the role of someone actively engaged in the situation.
+* Only ask questions with **definite answers**. Do not ask ambiguous or subjective questions such as "what does this object add to the atmosphere?" or "What is the overall feeling of the image?".
 
 **Example:**
 If the background is an office and the goal is “send an email to the boss,” suitable questions include:
@@ -150,7 +151,6 @@ If the background is an office and the goal is “send an email to the boss,” 
 
 **Output Requirement:**
 Respond with **the question ONLY**. Do not include explanations, commentary, or any additional text.
-
 """
 
 FOLLOW_UP_CONV_PROMPT = \
@@ -266,11 +266,9 @@ class EvalSample:
         type_id = llm_chat.chat(conversations, parse_json)['type']
         return type_id
     
-    def ask_regular(self, conversations, selected_nodes, context):
+    def ask_regular(self, conversations, context):
         conversations = copy.deepcopy(conversations)
-        sampled_node = random.choice(selected_nodes)
-        selected_nodes.remove(sampled_node)
-        conversations.append({"role": "user", "content": REGULAR_CONV_PROMPT.format(sampled_node, context["background"], context["goal"])})
+        conversations.append({"role": "user", "content": REGULAR_CONV_PROMPT.format(context["background"], context["goal"])})
         message = self.llm_chat.chat(conversations, None)
         return message
     
@@ -329,10 +327,10 @@ class EvalSample:
         to_save = []
         contexts = self.generate_context(self.case)
         for context in contexts:
-            selected_nodes = self.select_context_nodes(context)
+            # selected_nodes = self.select_context_nodes(context)
             print("-" * 50, f"context", "-" * 50)
             print(context)
-            print("selected nodes: ", selected_nodes)
+            # print("selected nodes: ", selected_nodes)
             print("-" * 100)
             # TODO: can we use ICLs here?
             # sys_prompt = PROMPT.__dict__[args.p_mode]
@@ -364,10 +362,8 @@ class EvalSample:
                     break
                 
                 if type_id == 1:
-                    if len(selected_nodes) == 0:
-                        continue
                     print("asking regular question")
-                    message_evaluator = self.ask_regular(conversations, selected_nodes, context)
+                    message_evaluator = self.ask_regular(conversations, context)
                 elif type_id == 2:
                     print("asking follow-up question")
                     message_evaluator = self.ask_follow_up(conversations, context)
@@ -396,6 +392,7 @@ class EvalSample:
                 )
             
             sample_to_save = copy.deepcopy(self.case)
+            print(sample_to_save["metadata"])
             sample_to_save["conversations"] = to_save_i
             sample_to_save["context"] = context
             del sample_to_save["image"]

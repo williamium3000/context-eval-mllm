@@ -8,6 +8,8 @@ import time
 
 from shr_utils import *
 
+from utils.vg import format_case_vg
+from utils.coco import format_case_coco
 
 from dotenv import load_dotenv
 
@@ -15,18 +17,21 @@ load_dotenv(".env")
 
 GPT_JUDGE_PROMPT = '''
 Please help me judge if the comment of this image is hallucination or correct. 
-I will give you a list of region description of a image. The format is [x1, y1, x2, y2]: region description, where [x1, y1, x2, y2] is the bounding box of the region. This is the ground truth information of the image. Besides, I give you some factual information about the content of the image (which is 100% accurate). Your judgement should base on this information. However, this information only descibe the objects in the region of image, so it cannot descibe the subjective part of the image, e.g., atmosphere, style, emotion. In that case, you can return "Cannot judge".
-Also, I will give you a list of comments of the image for you to judge if it is hallucination. Please give a judgement one by one along with the reason.
+I will give you a list of factual information about the image content. 
+
+* **An image** (represented as a list of objects, their attributes, and relationships).
+* **Bounding-box coordinates** for each object, given as `(x1, y1, x2, y2)` in normalized values between 0 and 1, corresponding to top-left and bottom-right corners.
+* **Region descriptions** for each region, given as `(x1, y1, x2, y2): region description`, where `(x1, y1, x2, y2)` is the bounding box of the region in normalized values between 0 and 1, corresponding to top-left and bottom-right corners, and `region description` is the description of the region.
+
+I will also give you a list of comments of the image for you to judge if it is hallucination based on the given factual information and image content. Please give a judgement one by one along with the reason.
 
 Your output should be:
 Judgement:
 1. hallucination or correct or cannot judge: <reason>
 2. ...
 
-Here are the region descriptions of the image:
-{}
 
-Factual Information:
+Factual Image Information:
 {}
 
 Here is the comment for you to judge (hallucination, correct, or cannot judge): 
@@ -58,16 +63,11 @@ if __name__ == '__main__':
         judgement[run] = {}
 
     for i, record in enumerate(tqdm.tqdm(records)):
-
-        description = ""
-        instances = record["instances"]
-        for ins in instances:
-            description += f"{ins['bbox']}: {ins['category']}\n"
-        
+        image_info = format_case_vg(record, use_region=True)
         model_response = " ".join([conv["response"] for conv in record["conversations"]])
         model_cap_sep, is_repeated = get_model_cap(model_response)
 
-        judge_prompt = GPT_JUDGE_PROMPT.format(description, "\n".join(record["captions"]), model_cap_sep)
+        judge_prompt = GPT_JUDGE_PROMPT.format(image_info, model_cap_sep)
         
         for run in run_all:
             while True:

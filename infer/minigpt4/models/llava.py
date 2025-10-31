@@ -77,7 +77,7 @@ class LLaVa(BaseModel):
 
         self.llama_tokenizer = AutoTokenizer.from_pretrained(merged_ckpt, use_fast=False)
         self.llama_model = LlavaLlamaForCausalLM.from_pretrained(
-            merged_ckpt, low_cpu_mem_usage=True, **kwargs)
+            merged_ckpt, **kwargs)
 
         mm_use_im_start_end = getattr(self.llama_model.config, "mm_use_im_start_end", False)
         mm_use_im_patch_token = getattr(self.llama_model.config, "mm_use_im_patch_token", True)

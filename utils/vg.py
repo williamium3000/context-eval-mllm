@@ -70,7 +70,7 @@ def load_vg(num_samples=None):
         samples.append(case)
     return samples
 
-def format_case_vg(case):
+def format_case_vg(case, use_region=False):
     formatted = "Instances:\n"
     H = case["height"]
     W = case["width"]
@@ -91,7 +91,14 @@ def format_case_vg(case):
     formatted += "\nRelation between the above instances:\n"
     for rel in sg["relationships"]:
         formatted += f"{rel['subject']['names'][0]} (instance {rel['subject']['object_id']}) {rel['predicate'].lower()} {rel['object']['names'][0]} (instance {rel['object']['object_id']})\n"
-        
+    
+    if use_region:
+        formatted += "\nRegion descriptions:\n"
+        for reg in case["metadata"]["regions"]:
+            x, y, w, h = reg['x'], reg['y'], reg['width'], reg['height']
+            x1, y1, x2, y2 = x / W, y / H, (x + w) / W, (y + h) / H
+            formatted += f"description: {reg['phrase']}, bbox: ({x1:.2f}, {y1:.2f}, {x2:.2f}, {y2:.2f})\n"
+    
     return formatted
 if __name__ == "__main__":
     print(format_case_vg(load_vg(num_samples=5)[0]))

@@ -19,11 +19,11 @@ for sample in data:
     has_hallucination = False
     sample_count += 1
     for conv in conversations:
-        for hallucination in conv["hallucinations"]:
+        for hallucination in conv["easydetect_result"]:
             claim_count += 1
             keys = list(hallucination.keys())
             assert "claim" in keys[0], hallucination
-            if "non" in hallucination[keys[0]]:
+            if "non" in hallucination["claim_result"]:
                 pass
             else:
                 has_hallucination = True

@@ -29,7 +29,7 @@ def eval_model(processor, model, image_file, query):
     input_len = inputs["input_ids"].shape[-1]
 
     with torch.inference_mode():
-        generation = model.generate(**inputs, max_new_tokens=256, do_sample=False)
+        generation = model.generate(**inputs, max_new_tokens=1024, do_sample=False)
         generation = generation[0][input_len:]
 
     output_text = processor.decode(generation, skip_special_tokens=True)
@@ -47,10 +47,10 @@ if __name__ == "__main__":
     parser.add_argument('--model_path', type=str, default="google/gemma-3-27b-it")
     args = parser.parse_args()
     model = Gemma3ForConditionalGeneration.from_pretrained(
-        args.model_path, device_map="auto"
+        args.model_path, device_map="auto", trust_remote_code=True
     ).eval()
 
-    processor = AutoProcessor.from_pretrained(args.model_path)
+    processor = AutoProcessor.from_pretrained(args.model_path, trust_remote_code=True)
 
     
     # format:

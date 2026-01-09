@@ -4,7 +4,7 @@ import argparse
 import json
 import tqdm
 
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoTokenizer, AutoProcessor
+from transformers import Qwen3VLMoeForConditionalGeneration, AutoProcessor
 from qwen_vl_utils import process_vision_info
 import torch
 
@@ -23,20 +23,14 @@ def eval_model(processor, model, image_file, query):
     ]
 
     # Preparation for inference
-    text = processor.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
+    inputs = processor.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_dict=True,
+        return_tensors="pt"
     )
-    image_inputs, video_inputs = process_vision_info(messages)
-    inputs = processor(
-        text=[text],
-        images=image_inputs,
-        videos=video_inputs,
-        padding=True,
-        return_tensors="pt",
-    )
-    inputs = inputs.to("cuda")
-
-    # Inference: Generation of the output
+    inputs = inputs.to(model.device)
     generated_ids = model.generate(**inputs, max_new_tokens=1024)
     generated_ids_trimmed = [
         out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
@@ -55,10 +49,10 @@ if __name__ == "__main__":
     parser.add_argument('--infile', type=str, required=True)
     parser.add_argument('--outfile', type=str, required=True)
     parser.add_argument('--img_dir', type=str, required=True)
-    parser.add_argument('--model_path', type=str, default="Qwen/Qwen2.5-VL-3B-Instruct")
+    parser.add_argument('--model_path', type=str, default="Qwen/Qwen3-VL-30B-A3B-Instruct")
     args = parser.parse_args()
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        "Qwen/Qwen2.5-VL-3B-Instruct", torch_dtype="auto", device_map="auto"
+    model = Qwen3VLMoeForConditionalGeneration.from_pretrained(
+        "Qwen/Qwen3-VL-30B-A3B-Instruct", dtype="auto", device_map="auto"
     )
 
     # We recommend enabling flash_attention_2 for better acceleration and memory saving, especially in multi-image and video scenarios.
@@ -70,7 +64,7 @@ if __name__ == "__main__":
     # )
 
     # default processer
-    processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
+    processor = AutoProcessor.from_pretrained("Qwen/Qwen3-VL-30B-A3B-Instruct")
 
     
     # format:

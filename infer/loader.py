@@ -70,6 +70,23 @@ def load_model(args):
         # default processer
         processor = AutoProcessor.from_pretrained(args.model_path)
         return partial(eval_model_qwenvl2d5, model=model, processor=processor)
+    elif "Qwen3-VL" in args.model_path:
+        from .infer_qwenvl3 import eval_model as eval_model_qwenvl3
+        if "A" in args.model_path:
+            from transformers import Qwen3VLMoeForConditionalGeneration, AutoProcessor
+            model = Qwen3VLMoeForConditionalGeneration.from_pretrained(
+                args.model_path, torch_dtype="auto", device_map="auto"
+            )
+            
+        else:
+            from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
+            model = Qwen3VLForConditionalGeneration.from_pretrained(
+                args.model_path, torch_dtype="auto", device_map="auto"
+            )
+
+        # default processer
+        processor = AutoProcessor.from_pretrained(args.model_path)
+        return partial(eval_model_qwenvl3, model=model, processor=processor)
     elif "Qwen2-VL" in args.model_path:
         from .infer_qwenvl2 import eval_model as eval_model_qwenvl2
         from transformers import AutoProcessor, Qwen2VLForConditionalGeneration

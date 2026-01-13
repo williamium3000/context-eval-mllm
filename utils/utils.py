@@ -1,5 +1,6 @@
 from .coco import load_coco2017
 from .vg import load_vg
+from .svg import load_svg
 
 import os
 from PIL import Image
@@ -29,8 +30,13 @@ def load_data(args):
             
     elif args.dataset == "vg":
         samples = load_vg(args.num_samples)
+        
+    elif args.dataset == "svg":
+        # Load from Icey444/svg500_in_vg - already has images and VG format
+        print("Loading SVG dataset in VG format from HuggingFace (Icey444/svg500_in_vg)...")
+        samples = load_svg(num_samples=args.num_samples)
+        print(f"Loaded {len(samples)} SVG samples with images in VG format")
+        
     else:
         raise ValueError("Unknown dataset")
     return samples
-
-    

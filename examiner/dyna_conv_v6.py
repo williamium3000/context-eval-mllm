@@ -1,6 +1,7 @@
 from utils.utils import load_data
 from utils.vg import format_case_vg
 from utils.coco import format_case_coco
+from utils.svg import format_case_svg
 from utils.llm import LLMChat, parse_json
 from examiner import prompt as PROMPT
 from infer.loader import load_model
@@ -268,8 +269,16 @@ Q_TYPE_MAPPING = {
 class EvalSample:
     def __init__(self, case, llm_chat, eval_func):
         self.case = case
-        self.image_info = format_case_vg(case) if args.dataset == "vg" else format_case_coco(case)
-        self.scene_graph_data = SceneGraphData.from_dict(case)
+        if args.dataset == "vg":
+            self.image_info = format_case_vg(case)
+            self.scene_graph_data = SceneGraphData.from_dict(case)
+        elif args.dataset == "svg":
+            # SVG now uses VG format directly (loaded from Icey444/svg500_in_vg)
+            self.image_info = format_case_svg(case)
+            self.scene_graph_data = SceneGraphData.from_dict(case)
+        else:
+            self.image_info = format_case_coco(case)
+            self.scene_graph_data = SceneGraphData.from_dict(case)
 
         self.llm_chat = llm_chat
         self.eval_func = eval_func
@@ -321,11 +330,18 @@ class EvalSample:
         conversations.append({"role": "assistant", "content": message})
         conversations.append({"role": "user", "content": ADVERSARIAL_CONV_PROMPT2})
         message = self.llm_chat.chat(conversations, parse_json)
-        meta_msg.append(message)
+        
         return message, meta_msg
     
     def generate_context(self, case):
-        image_info = format_case_vg(case) if args.dataset == "vg" else format_case_coco(case)
+        if args.dataset == "svg":
+            # SVG now uses VG format directly
+            image_info = format_case_svg(case)
+        elif args.dataset == "vg":
+            image_info = format_case_vg(case)
+        else:
+            image_info = format_case_coco(case)
+            
         conversations = [
             {"role": "system", "content": PROMPT.CONTEXT_PROMPT.strip()},
             {"role": "user", "content": CONTEXT_PROMPT.format(image_info).strip()}
@@ -484,6 +500,13 @@ if __name__ == "__main__":
     eval_func = load_model(args)
     
     samples = load_data(args)
+    
+    # No need to check for SVG images anymore - they come from HuggingFace
+    if args.dataset == "svg":
+        # Verify samples have images
+        missing_images = sum(1 for s in samples if 'image' not in s)
+        if missing_images > 0:
+            raise ValueError(f"{missing_images}/{len(samples)} samples missing images. Use default loader or check HuggingFace dataset.")
     
     llm_chat = LLMChat(model_name="gpt-4o")
     

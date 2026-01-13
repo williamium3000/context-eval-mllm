@@ -15,8 +15,8 @@ export PYTHONPATH=$PYTHONPATH:./:infer:grader/easydetect
 export CUDA_VISIBLE_DEVICES=1
 
 NUM_SAMPLES=5
-SAVE_DIR=work_dirs/vg/dyna_conv_v7
-RUN_FILE=examiner/dyna_conv_v7.py
+SAVE_DIR=work_dirs/vg/dyna_conv_v8
+RUN_FILE=examiner/dyna_conv_v8.py
 # Initialize conda
 eval "$(conda shell.bash hook)"
 conda activate /home/liyijiang3000/project/simple-mmeval/envs/qwenvl3

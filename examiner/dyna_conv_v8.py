@@ -146,14 +146,7 @@ Choose type 2 (Follow-up) if ANY of the following is true:
 - There is an inconsistency or potential hallucination risk in the last answer that can be probed without revealing metadata.
 - The user’s goal is mid-progress and a clarification would naturally come next.
 
-D) Adversarial and Unanswerable questions must be TRIGGERED by a valid hallucination candidate.
-Only choose type 3 or 4 if you can identify a plausible but ABSENT (or clearly unsupported) candidate that commonly co-occurs with visible content.
-The candidate can be:
-- an object (e.g., knife near cake),
-- an attribute (e.g., a “blue” variant of a visible item),
-- a relation (e.g., “plugged into” between visible devices).
-
-F) End the conversation (type 5) only when it is genuinely done.
+C) End the conversation (type 5) only when it is genuinely done.
 Choose type 5 if:
 - The conversation has covered the key context/goal sufficiently, OR
 - No more grounded, non-redundant questions remain, OR
@@ -162,9 +155,10 @@ Choose type 5 if:
 ========================
 DIVERSITY GUIDANCE (SOFT)
 ========================
+- Given the previous asked question types (in order), you should ask a type that's diverse from the previous asked question types.
+- However, DON'T enforce diversity too much and DON'T pick a type that feels unnatural or unjustified by the current dialogue state and image/context, we prefer NATURAL FLOW over forced diversity.
 - Avoid repeating the same type too many times in a row unless it is clearly the most natural choice.
 - If multiple types are equally natural, prefer a type that increases diversity relative to previous asked question types.
-- However, do NOT select type 3 or 4 solely for diversity. They require a valid trigger hallucination candidate.
 
 ========================
 OUTPUT FORMAT (STRICT)

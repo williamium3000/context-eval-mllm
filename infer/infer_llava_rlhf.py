@@ -22,7 +22,7 @@ import os
 import tqdm
 from transformers import AutoTokenizer
 from peft import PeftModel
-
+from PIL import Image
 
 
 
@@ -43,7 +43,6 @@ def eval_model(tokenizer, model, image_processor, image_file, query):
             qs = DEFAULT_IMAGE_TOKEN + "\n" + qs
 
     conv_mode = "llava_v0"
-
     conv = conv_templates[conv_mode].copy()
     conv.append_message(conv.roles[0], qs)
     conv.append_message(conv.roles[1], None)
@@ -58,22 +57,27 @@ def eval_model(tokenizer, model, image_processor, image_file, query):
         model.config
     ).to(model.device, dtype=torch.float16)
 
-    input_ids = (
-        tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt")
-        .unsqueeze(0)
-        .cuda()
+    input_ids = tokenizer_image_token(
+        prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt"
     )
+    # ✅ force [1, T]
+    if isinstance(input_ids, torch.Tensor) and input_ids.dim() == 1:
+        input_ids = input_ids.unsqueeze(0)
+    input_ids = input_ids.to(model.device)
+
+    assert input_ids is not None
+    assert input_ids.dim() == 2, f"bad input_ids shape: {tuple(input_ids.shape)}"
 
     with torch.inference_mode():
         output_ids = model.generate(
-            input_ids,
+            inputs=input_ids,
             images=images_tensor,
             image_sizes=image_sizes,
             do_sample=False,
             temperature=0.0,
             top_p=None,
             num_beams=1,
-            max_new_tokens=256,
+            max_new_tokens=10240,
             use_cache=True,
         )
 
@@ -139,7 +143,6 @@ if __name__ == "__main__":
 
     tokenizer, model, image_processor, context_len = load_pretrained_model(
         args.model_path, args.lora_path, args.model_name, args.load_bf16)
-    model = PeftModel.from_pretrained(model, args.lora_path)
 
     model_path = args.model_path
     model_name = args.model_name
@@ -162,7 +165,7 @@ if __name__ == "__main__":
                                 "temperature": 0.0,  # set as 0.0 for reproceduce
                                 "top_p": None,
                                 "num_beams": 1,
-                                "max_new_tokens": 512
+                                "max_new_tokens": 10240
                             })())
         output = output.strip().replace(".", '').lower()
         print(output)

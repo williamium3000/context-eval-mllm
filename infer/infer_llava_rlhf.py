@@ -162,7 +162,7 @@ if __name__ == "__main__":
                                 "temperature": 0.0,  # set as 0.0 for reproceduce
                                 "top_p": None,
                                 "num_beams": 1,
-                                "max_new_tokens": 512
+                                "max_new_tokens": 2048
                             })())
         output = output.strip().replace(".", '').lower()
         print(output)

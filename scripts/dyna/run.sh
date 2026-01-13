@@ -14,27 +14,27 @@
 export PYTHONPATH=$PYTHONPATH:./:infer:grader/easydetect
 export CUDA_VISIBLE_DEVICES=1
 
-NUM_SAMPLES=20
+NUM_SAMPLES=5
 SAVE_DIR=work_dirs/vg/dyna_conv_v5
 RUN_FILE=examiner/dyna_conv_v5.py
 # Initialize conda
 eval "$(conda shell.bash hook)"
-conda activate work_dirs/envs/qwenvl2d5
+conda activate /home/liyijiang3000/project/simple-mmeval/envs/qwenvl3
+
+# python $RUN_FILE \
+#     --dataset vg --model_path llava-hf/llava-1.5-7b-hf  \
+#     --outfile $SAVE_DIR/llava-1.5-7b-hf.json \
+#     --num_samples $NUM_SAMPLES
+
+# python $RUN_FILE \
+#     --dataset vg --model_path llava-hf/llava-1.5-13b-hf  \
+#     --outfile $SAVE_DIR/llava-1.5-13b-hf.json \
+#     --num_samples $NUM_SAMPLES
+
 
 python $RUN_FILE \
-    --dataset vg --model_path llava-hf/llava-1.5-7b-hf  \
-    --outfile $SAVE_DIR/llava-1.5-7b-hf.json \
-    --num_samples $NUM_SAMPLES
-
-python $RUN_FILE \
-    --dataset vg --model_path llava-hf/llava-1.5-13b-hf  \
-    --outfile $SAVE_DIR/llava-1.5-13b-hf.json \
-    --num_samples $NUM_SAMPLES
-
-
-python $RUN_FILE \
-    --dataset vg --model_path Qwen/Qwen2.5-VL-7B-Instruct  \
-    --outfile $SAVE_DIR/Qwen2.5-VL-7B-Instruct.json \
+    --dataset vg --model_path Qwen/Qwen2.5-VL-3B-Instruct  \
+    --outfile $SAVE_DIR/Qwen2.5-VL-3B-Instruct.json \
     --num_samples $NUM_SAMPLES
 
 # python $RUN_FILE \
@@ -103,13 +103,13 @@ python $RUN_FILE \
 #     --outfile $SAVE_DIR/paligemma-3b-mix-224.json \
 #     --num_samples $NUM_SAMPLES
 
-eval "$(conda shell.bash hook)"
-conda activate work_dirs/envs/llava
+# eval "$(conda shell.bash hook)"
+# conda activate work_dirs/envs/llava
 
-python $RUN_FILE \
-    --dataset vg --model_path data/checkpoints/LLaVA-RLHF-13b-v1.5-336\
-    --outfile $SAVE_DIR/LLaVA-RLHF-13b-v1.5-336.json \
-    --num_samples $NUM_SAMPLES
+# python $RUN_FILE \
+#     --dataset vg --model_path data/checkpoints/LLaVA-RLHF-13b-v1.5-336\
+#     --outfile $SAVE_DIR/LLaVA-RLHF-13b-v1.5-336.json \
+#     --num_samples $NUM_SAMPLES
 
 # conda activate work_dirs/envs/ovis2
 # python $RUN_FILE \

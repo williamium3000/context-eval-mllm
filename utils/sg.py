@@ -85,10 +85,10 @@ class SceneGraph:
 class ImageInfo:
     """Represents image metadata and associated scene graph."""
     image_id: int
-    url: str
-    width: int
-    height: int
-    sg: SceneGraph
+    url: str = None  # Optional: can be None if image is a PIL object
+    width: int = 0
+    height: int = 0
+    sg: SceneGraph = None
     
     def __post_init__(self):
         """Validate image data after initialization."""
@@ -148,10 +148,10 @@ class SceneGraphData:
         
         # Create image info
         image_info = ImageInfo(
-            image_id=img_info['image_id'],
-            url=img_info['url'],
-            width=img_info['width'],
-            height=img_info['height'],
+            image_id=img_info.get('image_id', 'unknown'),
+            url=img_info.get('url', None),  # Optional for SVG with PIL images
+            width=img_info.get('width', 640),
+            height=img_info.get('height', 480),
             sg=scene_graph
         )
         

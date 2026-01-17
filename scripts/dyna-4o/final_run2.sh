@@ -11,15 +11,15 @@
 
 # mkdir -p slurm_logs
 # conda activate llava
-export PYTHONPATH=$PYTHONPATH:./:infer:grader/easydetect
-export CUDA_VISIBLE_DEVICES=1
+export PYTHONPATH=$PYTHONPATH:./:infer:LLaVA/llava
+export CUDA_VISIBLE_DEVICES=0
 
-NUM_SAMPLES=5
-SAVE_DIR=work_dirs/vg/dyna_conv_v5_nano
-RUN_FILE=examiner/dyna_conv_v5.py
+NUM_SAMPLES=100
+SAVE_DIR=work_dirs/vg/final_run_v18_gpt4o
+RUN_FILE=examiner/dyna_conv_v18.py
 # Initialize conda
 eval "$(conda shell.bash hook)"
-conda activate /raid/miniconda3/envs/qwenvl
+conda activate work_dirs/envs/llava
 
 # python $RUN_FILE \
 #     --dataset vg --model_path llava-hf/llava-1.5-7b-hf  \
@@ -32,10 +32,25 @@ conda activate /raid/miniconda3/envs/qwenvl
 #     --num_samples $NUM_SAMPLES
 
 
+# python $RUN_FILE \
+#     --dataset vg --model_path Qwen/Qwen2.5-VL-3B-Instruct  \
+#     --outfile $SAVE_DIR/Qwen2.5-VL-3B-Instruct.json \
+#     --num_samples $NUM_SAMPLES
+
+
+# conda activate work_dirs/envs/llava
 python $RUN_FILE \
-    --dataset vg --model_path Qwen/Qwen2.5-VL-3B-Instruct  \
-    --outfile $SAVE_DIR/Qwen2.5-VL-3B-Instruct.json \
-    --num_samples $NUM_SAMPLES
+--dataset vg --model_path data/checkpoints/LLaVA-RLHF-13b-v1.5-336 \
+--outfile $SAVE_DIR/LLaVA-RLHF-13b-v1.5-336.json \
+--num_samples $NUM_SAMPLES
+
+# (
+#   conda activate /raid/miniconda3/envs/qwenvl
+#   python $RUN_FILE \
+#     --dataset vg --model_path Qwen/Qwen3-VL-8B-Instruct  \
+#     --outfile $SAVE_DIR/Qwen3-VL-8B-Instruct.json \
+#     --num_samples $NUM_SAMPLES
+# ) > ${LOG_DIR}/Qwen3-VL-8B-Instruct.log 2>&1 &
 
 # python $RUN_FILE \
 #     --dataset vg --model_path Salesforce/blip2-flan-t5-xl  \

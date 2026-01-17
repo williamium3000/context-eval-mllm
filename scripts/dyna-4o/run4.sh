@@ -11,12 +11,13 @@
 
 # mkdir -p slurm_logs
 # conda activate llava
+export PYTHONPATH=$PYTHONPATH:./
 export PYTHONPATH=$PYTHONPATH:./:infer:grader/easydetect
 export CUDA_VISIBLE_DEVICES=1
 
-NUM_SAMPLES=5
-SAVE_DIR=work_dirs/vg/dyna_conv_v5_nano
-RUN_FILE=examiner/dyna_conv_v5.py
+NUM_SAMPLES=15
+SAVE_DIR=work_dirs/vg/final_run_v18_gpt4o
+RUN_FILE=examiner/dyna_conv_v18.py
 # Initialize conda
 eval "$(conda shell.bash hook)"
 conda activate /raid/miniconda3/envs/qwenvl
@@ -31,10 +32,16 @@ conda activate /raid/miniconda3/envs/qwenvl
 #     --outfile $SAVE_DIR/llava-1.5-13b-hf.json \
 #     --num_samples $NUM_SAMPLES
 
+  conda activate /raid/miniconda3/envs/qwenvl
+  python $RUN_FILE \
+    --dataset vg --model_path Qwen/Qwen2.5-VL-7B-Instruct  \
+    --outfile $SAVE_DIR/Qwen2.5-VL-7B-Instruct.json \
+    --num_samples $NUM_SAMPLES
 
-python $RUN_FILE \
-    --dataset vg --model_path Qwen/Qwen2.5-VL-3B-Instruct  \
-    --outfile $SAVE_DIR/Qwen2.5-VL-3B-Instruct.json \
+  conda activate /raid/miniconda3/envs/qwenvl
+  python $RUN_FILE \
+    --dataset vg --model_path Qwen/Qwen3-VL-8B-Instruct  \
+    --outfile $SAVE_DIR/Qwen3-VL-8B-Instruct.json \
     --num_samples $NUM_SAMPLES
 
 # python $RUN_FILE \

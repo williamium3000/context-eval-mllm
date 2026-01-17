@@ -32,6 +32,8 @@ class LLMChat:
     def __init__(self, model_name=None, patience=3):
         self.patience = patience
         self.model = model_name
+        self.client = None
+        
         if os.getenv("OPENAI_API_KEY"):
             self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url=os.getenv("OPENAI_BASE_URL"))
         
@@ -41,6 +43,8 @@ class LLMChat:
                 api_key=os.getenv("AZURE_OPENAI_KEY"),  
                 api_version="2025-01-01-preview")
             self.model = os.getenv("AZURE_OPENAI_DEPLOYNAME", self.model)
+        
+        assert self.client is not None, "Neither OPENAI_API_KEY nor AZURE_OPENAI_KEY is set. Please configure one."
         assert self.model is not None, "Model name is not provided."
         
         # log params

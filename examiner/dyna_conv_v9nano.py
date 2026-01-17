@@ -117,55 +117,26 @@ Please select the object nodes that are most relevant to the context in the orde
 
 
 SWITCH_PROMPT = \
-"""You are deciding what QUESTION TYPE to ask NEXT in a multi-turn conversation about an image, with a given context (background + goal). 
-You MUST choose exactly ONE of the following 5 types:
+"""Based on the given conversation history, please decide which type of question to ask next. Please choose one of the following types of questions:
 
 1. **Regular questions** – directly related to the image and context.
    *Example*: In an office setting, the goal of the conversation is to send an email to his boss. you can ask questions like "is the monitor turned on?", "where is the power button of the computer?", "I want to type in the email, what should I look for?" etc.
+
 2. **Follow-up questions** – follow up, confirm or interrogate the model’s last response.
+
 3. **Adversarial questions** – inquire about plausible but absent objects that commonly co-occur with visible ones in the image.
    *Example*: If the image shows a cake without utensils, you may ask: *“Can I use the knife on the table to cut the cake?”* or *"Is there a folk?"*
+
 4. **Unanswerable questions** – ask about question that cannot be answered.
    *Example*: if the image depicts a cake on the table without any utensil or people eating the cake, you can ask "What utensil is the man using to cut the cake?". This is an unanswerable question because you cannot answer with an utensil but rather you should answer "There are not any man in the image eating the cake".
+
 5. **End the conversation** – output "END" to end the conversation.
 
-Here previously asked question types (in order): {asked_types}.
+Given previous asked question types: {}, try to ask a diverse types of questions.
 
-========================
-CORE DECISION RULES
-========================
-
-A) Prefer NATURAL FLOW over forced diversity.
-- Aim for diversity across types, but do NOT pick a type that feels unnatural or unjustified by the current dialogue state and image/context.
-
-B) Follow-up is preferred when the last exchange suggests it.
-Choose type 2 (Follow-up) if ANY of the following is true:
-- The last answer is vague, incomplete, or hedged (e.g., “maybe”, “not sure”, “seems like”).
-- The last question/answer involves an object with many visible details that were not asked yet (color, count, location, state, relation).
-- The last answer mentioned multiple entities and you can drill down on one.
-- There is an inconsistency or potential hallucination risk in the last answer that can be probed without revealing metadata.
-- The user’s goal is mid-progress and a clarification would naturally come next.
-
-C) End the conversation (type 5) only when it is genuinely done.
-Choose type 5 if:
-- The conversation has covered the key context/goal sufficiently, OR
-- No more grounded, non-redundant questions remain, OR
-- Continuing would become repetitive or forced.
-
-========================
-DIVERSITY GUIDANCE (SOFT)
-========================
-- Given the previous asked question types (in order), you should ask a type that's diverse from the previous asked question types.
-- However, DON'T enforce diversity too much and DON'T pick a type that feels unnatural or unjustified by the current dialogue state and image/context, we prefer NATURAL FLOW over forced diversity.
-- Avoid repeating the same type too many times in a row unless it is clearly the most natural choice.
-- If multiple types are equally natural, prefer a type that increases diversity relative to previous asked question types.
-
-========================
-OUTPUT FORMAT (STRICT)
-========================
-YOU CAN ONLY SELECT ONE OF THE ABOVE FIVE TYPES OF QUESTIONS.
+YOU CAN ONLY SELECT ONE OF THE ABOVE FIVE TYPES OF QUESTIONS !!
 Respond format: you can explain, reason or perform chain-of-thought to select the next question type. 
-However, you MUST provide a digit between 1 and 4 to indicate the next question type:
+However, you MUST eventually provide a digit between 1 and 4 to indicate the next question type:
 ```json
 {{"type": type_id}}
 ```
@@ -299,6 +270,8 @@ You should ask a question as if you are having a conversation with the model. Pl
 UNANSWERABLE_CONV_PROMPT1 = \
 """Based on the given image, context, and conversation history, generate an **unanswerable question**.
 
+Here is the context:
+background: {}, goal: {}
 
 An *unanswerable question* refers to a query that cannot be answered using the provided information because it introduces a plausible but absent or incorrect object, attribute, or relation.
 For example, if the image shows only a cake on the table, ask *“What utensil is the man using to cut the cake?”* is unanswerableble since no man is present.
@@ -416,7 +389,7 @@ class EvalSample:
     def switch(self, conversations, swicth_history):
         conversations = copy.deepcopy(conversations)
         conversations.append(
-            {"role": "user", "content": SWITCH_PROMPT.format(asked_types=swicth_history)})
+            {"role": "user", "content": SWITCH_PROMPT.format(swicth_history)})
         type_id = self.llm_chat.chat(conversations, parse_json)['type']
         return type_id
     
@@ -624,7 +597,7 @@ if __name__ == "__main__":
     
     samples = load_data(args)
     
-    llm_chat = LLMChat(model_name="gpt-5")
+    llm_chat = LLMChat(model_name="gpt-5-nano-2025-08-07")
     
     # Initialize cache and resume functionality
     to_save = []

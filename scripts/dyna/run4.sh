@@ -11,12 +11,13 @@
 
 # mkdir -p slurm_logs
 # conda activate llava
+export PYTHONPATH=$PYTHONPATH:./
 export PYTHONPATH=$PYTHONPATH:./:infer:grader/easydetect
 export CUDA_VISIBLE_DEVICES=1
 
-NUM_SAMPLES=5
-SAVE_DIR=work_dirs/vg/dyna_conv_v5_nano
-RUN_FILE=examiner/dyna_conv_v5.py
+NUM_SAMPLES=15
+SAVE_DIR=work_dirs/vg/dyna_conv_v18hybrid
+RUN_FILE=examiner/dyna_conv_v18.py
 # Initialize conda
 eval "$(conda shell.bash hook)"
 conda activate /raid/miniconda3/envs/qwenvl

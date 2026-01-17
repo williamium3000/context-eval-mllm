@@ -1,3 +1,6 @@
+# 1) change switch/follow-up back to general, and keep interrogate requirement only in prompt
+# 2) parse string formats of relevant object nodes
+
 from utils.utils import load_data
 from utils.vg import format_case_vg
 from utils.coco import format_case_coco
@@ -12,32 +15,33 @@ import copy
 from utils.sg import SceneGraphData
 import random
 import traceback
+import re
 
 CONTEXT_PROMPT = \
 """
-Your task is to create a realistic scenario in which the given image is situated in the first-person view, i.e. you should imagine the image depicts your sight at the environment. This context should incorporate a background setting, the characters or objects involved, and a specific goal or objective that is relevant to the image. The context must be plausible, align with real-world experiences, and directly connect with the depicted elements in the image.
+Your task is to create a realistic scenario in which the given image is situated in the first-person view, i.e. you should imagine the image depicts your view of the environment. This context should incorporate a background setting, the characters and objects involved, and a specific goal or objective that is relevant to the image. The context must be plausible, align with real-world experiences, and directly connect with the depicted elements in the image.
 
 The image will be described through a list of objects, their attributes, and their spatial relationships, with each object represented by a set of coordinates in the image. These coordinates (x1, y1, x2, y2) will range from 0 to 1, corresponding to the top-left and bottom-right corners of each object.
 
+Image information:
+{}
 
 ========================
 CORE CONSTRAINTS
 ========================
 1) First-person framing:
    - Write as if the image is what "I" am currently seeing in front of me.
-2) Avoid non-visual human interaction goals:
-   - DO NOT require actions like confirming someone’s name, asking a person a question, reading someone’s mind, or any dialogue-based/social verification.
-   - If humans are present, you may include them as part of the scene, but the goal must NOT require learning about their private info (names, intentions, etc.).
-   - Allowed: non-verbal, visually-checkable interaction/intent (e.g., “approach the person near the parking meter and confirming his identity” is OK; “confirm his name”, "ask how he feels" or "what's his mode?" is NOT).
+2) Avoid non-visual / not inferable human interaction goals:
+   - If humans are present, you may include them as part of the scene, but the goal must NOT require learning about their demographic information (names, intentions, etc.). 
 3) Grounding in image instances:
-    - Each context MUST involves multiple instances, attributes or relations from the image.
-    - Given sufficient diversity, you should generate contexts that naturally involve as many instances, attributes or relations from the image as possible.
+    - Each context MUST involve multiple instances, attributes, or relations from the image.
+    - Given sufficient diversity, you should generate contexts that naturally involve as many instances, attributes, or relations from the image as possible.
 4) Diversity without redundancy:
    - The two contexts must be meaningfully different (different emphasis on objects/relations), not just rephrases of the same scenario.
      
 Instructions:
 1. Contextualization: Develop a background scenario that is logical and directly relevant to the visual elements in the image. The background should describe the setting, time, and possible situation in which these objects or characters might exist.
-2. Goal: Identify a specific action, objective, or task that the subject(s) in the image are trying to accomplish, which should be coherent with the scene described.
+2. Goal: Identify a specific action, objective, or task that "I" am trying to accomplish, which should be coherent with the scene described.
 3. Diversity: For the given image, you should generate several different and diverse contexts.
 
 Some GOOD Examples:
@@ -45,30 +49,36 @@ Some GOOD Examples:
 [
     {{
         "background": "A bustling city street during rush hour, with pedestrians walking past stores and cars honking in traffic. The image depicts the first-person view of the character.",
-        "goal": "The character is trying to catch a bus before it leaves."
+        "goal": "The character is trying to catch a bus before it leaves.",
+        "relevant_objects": ["object_id_1", "object_id_2", "object_id_3",...]
     }},
     {{
         "background": "An open-plan corporate office during a busy afternoon, with cubicles neatly separated by dividing screens and personal photos decorating the workspace walls. The image depicts the first-person view of the character.",
-        "goal": "The character is trying to send an email to his boss."
+        "goal": "The character is trying to send an email to his boss.",
+        "relevant_objects": ["object_id_1", "object_id_2", "object_id_3",...]
     }}, 
     {{
         "background": "A bright and inviting kitchen featuring wooden cabinetry, a cozy dining area, and fresh fruit adding a vibrant touch. The image depicts the first-person view of the character",
-        "goal": "The character is hungry and tries to eat something."
+        "goal": "The character is hungry and tries to eat something.",
+        "relevant_objects": ["object_id_1", "object_id_2", "object_id_3",...]
     }},
     {{
         "background": "A modest bathroom showing signs of wear, featuring basic fixtures, white tiles, and a shower area needing repairs.",
-        "goal": "The character just woke up and wanted to wash his face."
+        "goal": "The character just woke up and wanted to wash his face.",
+        "relevant_objects": ["object_id_1", "object_id_2", "object_id_3",...]
     }},
     {{
-        "background": "A modern kitchen with stainless steel appliances, wooden cabinets, and a countertop filled with various cooking utensils. ",
-        "goal": "The character is blind and stumbed into the kitchen. He is trying to find his way out of the kitchen."
+        "background": "A modern kitchen with stainless steel appliances, wooden cabinets, and a countertop filled with various cooking utensils.",
+        "goal": "The character is blind and stumbled into the kitchen. He is trying to find his way out of the kitchen.",
+        "relevant_objects": ["object_id_1", "object_id_2", "object_id_3",...]
     }}
 ]
 
-Image information:
-{}
 
-Please generate two contexts based on the image information. Please make sure the contexts involves some of the objects and instances in the image. Make sure the contexts are diverse and not redundant.
+
+Please generate two contexts based on the image information. Please make sure the contexts include only limited specific descriptions of object features in the image and stay as high-level glimpses without revealing too many observational details. Make sure the contexts are diverse and not redundant.
+
+For each context, also select ALL the relevant object nodes from the image that are related to the background or goal. These objects will be used to generate evaluation questions. Select objects in order of relevancy, with the most relevant first.
 
 ========================
 WHAT TO PRODUCE
@@ -76,96 +86,69 @@ WHAT TO PRODUCE
 Return EXACTLY a JSON list with TWO dictionaries. Each dictionary must contain:
 - "background": <50 words, first-person situation, plausible real-world setting>
 - "goal": a concrete objective that can be progressed by asking image-grounded questions
+- "relevant_objects": a list of object_ids (from the image information) that are most relevant to this context, ordered by relevancy
 
 Output format (STRICT):
 ```json
 [
-  {{"background": "...", "goal": "..."}},
-  {{"background": "...", "goal": "..."}}
+  {{"background": "...", "goal": "...", "relevant_objects": ["object_id_1", "object_id_2", "object_id_3", ...]}},
+  {{"background": "...", "goal": "...", "relevant_objects": ["object_id_1", "object_id_2", "object_id_3", ...]}}
 ]
 ```
 You MUST only respond in the format as described above. DO NOT RESPOND WITH ANYTHING ELSE.
 """
 
 
-SELECT_CONTEXT_NODES_PROMPT_SYSTEM = \
-"""
-you will be give an image and a context (background and goal). Then given image will be presented to you as a list of objects with attributes and relation of these objects. Each objects will be presented with specific coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
-Based on the image and context, you need to select the object nodes that are most relevant to the context, which will later be used to generate the evaluation question on this image and context.
-You can select one or multiple object nodes, but make sure they are relevant to the context or can be used to generate a evaluation question that fits the context.
+# SELECT_CONTEXT_NODES_PROMPT_SYSTEM = \
+# """
+# you will be give an image and a context (background and goal). Then given image will be presented to you as a list of objects with attributes and relation of these objects. Each objects will be presented with specific coordinates locations in the image, represented as (x1, y1, x2, y2) with floating numbers ranging from 0 to 1. These values correspond to the top left x, top left y, bottom right x, and bottom right y.
+# Based on the image and context, you need to select the object nodes that are most relevant to the context, which will later be used to generate the evaluation question on this image and context.
+# You can select one or multiple object nodes, but make sure they are relevant to the context or can be used to generate a evaluation question that fits the context.
 
-Respond format: You should return a list of selected object node in the order of their relevancy with the context. The first object node should be the most relevant object node to the context.
-you can explain, reason or perform chain-of-thought to select the object nodes. However, you MUST eventually provide a list of selected object_id in the json format as described below:
-```json
-[
-    "object_id_1", "object_id_2", "object_id_3", ...
-]
-```
-"""
+# Respond format: You should return a list of selected object node in the order of their relevancy with the context. The first object node should be the most relevant object node to the context.
+# you can explain, reason or perform chain-of-thought to select the object nodes. However, you MUST eventually provide a list of selected object_id in the json format as described below:
+# ```json
+# [
+#     "object_id_1", "object_id_2", "object_id_3", ...
+# ]
+# ```
+# """
 
 SELECT_CONTEXT_NODES_PROMPT = \
 """
 Image information:
 {}
 
-COntext:
+Context:
 background: {}, goal: {}
 
-Please select the object nodes that are most relevant to the context in the order of their relevancy with the context. You can explain, reason or perform chain-of-thought to select the object nodes. However, you MUST respond the selected object_id in the json format as described above.
+Please select the object nodes that are most relevant to the context in the order of their relevance to the context. You can explain, reason, or perform chain-of-thought to select the object nodes. However, you MUST respond with the selected object_id(s) in the JSON format described above.
 """
 
 
 
 SWITCH_PROMPT = \
-"""You are deciding what QUESTION TYPE to ask NEXT in a multi-turn conversation about an image, with a given context (background + goal). 
-You MUST choose exactly ONE of the following 5 types:
+"""Based on the given conversation history, please decide which type of question to ask next. Please choose one of the following types of questions:
 
 1. **Regular questions** – directly related to the image and context.
-   *Example*: In an office setting, the goal of the conversation is to send an email to his boss. you can ask questions like "is the monitor turned on?", "where is the power button of the computer?", "I want to type in the email, what should I look for?" etc.
-2. **Follow-up questions** – follow up, confirm or interrogate the model’s last response.
+    *Example*: In an office setting, the goal of the conversation is to send an email to his boss. You can ask questions like "is the monitor turned on?", "where is the power button of the computer?", "I want to type in the email, what should I look for?", etc.
+
+2. **Follow-up questions** – follow up, confirm or interrogate the model’s last response to test the confidence of the model's answer or to ask for further challenging details when available.
+   *Example*: If the model correctly identifies there's no fork on the table, you may ask: *“Are you sure there isn’t a fork on the table to cut the cake?”*
+
 3. **Adversarial questions** – inquire about plausible but absent objects that commonly co-occur with visible ones in the image.
-   *Example*: If the image shows a cake without utensils, you may ask: *“Can I use the knife on the table to cut the cake?”* or *"Is there a folk?"*
+    *Example*: If the image shows a cake without utensils, you may ask: *“Can I use the knife on the table to cut the cake?”* or *"Is there a fork?"*
+
 4. **Unanswerable questions** – ask about question that cannot be answered.
    *Example*: if the image depicts a cake on the table without any utensil or people eating the cake, you can ask "What utensil is the man using to cut the cake?". This is an unanswerable question because you cannot answer with an utensil but rather you should answer "There are not any man in the image eating the cake".
+
 5. **End the conversation** – output "END" to end the conversation.
 
-Here previously asked question types (in order): {asked_types}.
+Given the previously asked question types: {}, try to ask diverse types of questions.
 
-========================
-CORE DECISION RULES
-========================
-
-A) Prefer NATURAL FLOW over forced diversity.
-- Aim for diversity across types, but do NOT pick a type that feels unnatural or unjustified by the current dialogue state and image/context.
-
-B) Follow-up is preferred when the last exchange suggests it.
-Choose type 2 (Follow-up) if ANY of the following is true:
-- The last answer is vague, incomplete, or hedged (e.g., “maybe”, “not sure”, “seems like”).
-- The last question/answer involves an object with many visible details that were not asked yet (color, count, location, state, relation).
-- The last answer mentioned multiple entities and you can drill down on one.
-- There is an inconsistency or potential hallucination risk in the last answer that can be probed without revealing metadata.
-- The user’s goal is mid-progress and a clarification would naturally come next.
-
-C) End the conversation (type 5) only when it is genuinely done.
-Choose type 5 if:
-- The conversation has covered the key context/goal sufficiently, OR
-- No more grounded, non-redundant questions remain, OR
-- Continuing would become repetitive or forced.
-
-========================
-DIVERSITY GUIDANCE (SOFT)
-========================
-- Given the previous asked question types (in order), you should ask a type that's diverse from the previous asked question types.
-- However, DON'T enforce diversity too much and DON'T pick a type that feels unnatural or unjustified by the current dialogue state and image/context, we prefer NATURAL FLOW over forced diversity.
-- Avoid repeating the same type too many times in a row unless it is clearly the most natural choice.
-- If multiple types are equally natural, prefer a type that increases diversity relative to previous asked question types.
-
-========================
-OUTPUT FORMAT (STRICT)
-========================
-YOU CAN ONLY SELECT ONE OF THE ABOVE FIVE TYPES OF QUESTIONS.
+YOU CAN ONLY SELECT ONE OF THE ABOVE FIVE TYPES OF QUESTIONS !!
 Respond format: you can explain, reason or perform chain-of-thought to select the next question type. 
-However, you MUST provide a digit between 1 and 4 to indicate the next question type:
+However, you MUST eventually provide a digit between 1 and 4 to indicate the next question type:
 ```json
 {{"type": type_id}}
 ```
@@ -173,11 +156,12 @@ However, you MUST provide a digit between 1 and 4 to indicate the next question 
 
 CONV_SYSTEM_PROMPT = \
 """Your task is to **simulate a multi-round conversation with a vision-language model (VLM) about a given image**, in order to test whether the model hallucinates (i.e., produces responses inconsistent with the image) or remains faithful to it.
+**Ultimate Goal:** Raise challenging visual questions and probe as many hallucinations from the responding model as possible.
 
 You will have multiple rounds of conversations with the model. In each round, you will be provided with:
 
 * **An image** (represented as a list of objects, their attributes, and relationships).
-* **Bounding-box coordinates** for each object, given as `(x1, y1, x2, y2)` in normalized values between 0 and 1, corresponding to top-left and bottom-right corners.
+* **Bounding-box coordinates** for each object, given as `(x1, y1, x2, y2)` in normalized values between 0 and 1, corresponding to top-left and bottom-right corners of each object.
 
 Your role is to **carry out a natural, open-ended, human-like conversation** with the model, asking questions about the image in the given context.
 
@@ -185,33 +169,33 @@ Requirements
 
 1. **Multi-turn conversation**:
 
-   * Ask one question per turn, then wait for the model’s response.
-   * Incorporate both the image, context, and dialogue history when forming your question.
+    * Ask one question per turn, then wait for the model’s response.
+    * Incorporate the image, context, and dialogue history when forming your question.
 
 2. **Natural, human-like tone**:
 
-   * Speak as if conversing casually with another person.
-   * Avoid mechanical or scripted phrasing.
+    * Speak as if conversing casually with another person.
+    * Avoid mechanical or scripted phrasing.
 
-4. **No disclosure of metadata**:
+3. **No disclosure of metadata**:
 
-   * Do not reveal or reference bounding boxes, object lists, captions, or the source of your information.
-   * Ask question as if you are looking at the image with NO access to the bounding boxes, object lists, captions.
+    * Do not reveal or reference bounding boxes, object lists, captions, or the source of your information.
+    * Ask questions as if you are looking at the image with NO access to the bounding boxes, object lists, or captions.
 
-5. **Handling mistakes**:
+4. **Handling mistakes**:
 
-   * Do not correct the model if they make mistakes. 
-   * However, you may ask follow-ups to probe or interrogate its response.
+    * Do not correct the model if they make mistakes. 
+    * However, you may ask follow-ups to probe or interrogate its response.
 
-6. **Question style**:
+5. **Question style**:
 
-   * Prefer open-ended questions over yes/no questions.
-   * Ask diverse, non-redundant questions.
-   * Only ask questions with **definite answers** (either clearly present in the image or confidently absent).
+    * Prefer open-ended questions over yes/no questions.
+    * Ask diverse, non-redundant questions.
+    * Only ask questions with **definite answers** (either clearly present in the image or confidently absent).
 
-7. **Conversation ending**:
+6. **Conversation ending**:
 
-   * If the dialogue has naturally run its course, output **“END”** (and nothing else).
+    * If the dialogue has naturally run its course, output **“END”** (and nothing else).
 
 Image information:
 {}
@@ -234,6 +218,7 @@ REGULAR_CONV_PROMPT = \
 * Avoid irrelevant, generic, or out-of-character questions.
 * Keep the question consistent with the role of someone actively engaged in the situation.
 * Generate the ground-truth answer based on the given image content along the question.
+* **CRITICAL: Do NOT repeat or ask questions with the same meaning as any prior questions in the conversation history.**
 
 **Example:**
 If the background is an office and the goal is “send an email to the boss,” suitable questions include:
@@ -253,7 +238,22 @@ Respond with **the question and gt ONLY**. Do not include explanations, commenta
 
 FOLLOW_UP_CONV_PROMPT = \
 """Based on the given image, context, and the conversation history, please ask a follow-up question about the model's last turn of conversation and the corresponding ground-truth answer.
-You should ask the question as if you are having a conversation with the model. You should also following the above requirements.
+The follow-up question can be to ask for further challenging details when available or to interrogate the model's confidence in its previous correct answer.
+
+**Interrogate Type Requirement:**
+Only apply this follow-up type if the model correctly answered the previous question. We then want to test whether the confidence of the model's answer is low despite misleading subjective or peripheral evidence.
+- Challenge or verify the model's previous answer
+- Probe for more details
+- Test consistency
+- Question contradictions
+
+**Example follow-ups:**
+- After any answer: "Are you sure about [the specific detail they mentioned]?" like "Are you sure the color is [the color they mentioned]? I see it's actually [random other color]."
+- Challenging with visible evidence if last answer is non-existent: "I actually see a [the questioned item] near/around [co-occurring object/resonable location], are you sure you can't see [the questioned item]?"
+- Requesting clarification: "You mentioned [X], but can you describe it more precisely?"
+- Testing consistency: "Earlier you said [Y], how does that relate to what you just said?"
+
+You should ask the question as if you are having a conversation with the model. You should also follow the above requirements.
 Please respond in the following format:
 ```json
 {{"question": "xxxx", "gt": "xxxx"}},
@@ -261,47 +261,54 @@ Please respond in the following format:
 Please respond with the question and the ground-truth answer ONLY. DO NOT respond with anything else.
 """
 
+
 ADVERSARIAL_CONV_PROMPT1 = \
-"""Based on the given image, context, and the conversation history, please ask an adversarial question about a plausible but absent object, attribute or relation that commonly co-occur with visible ones in the image.
-Follow the procedure: first generate a plausible but absent or incorrect object, attribute or relation that commonly co-occur with visible ones in the image in the form of a json dict, then ask the adversarial question based on the generated hallucinated object, attribute or relation.
+"""Based on the given image, context, and the conversation history, please ask an adversarial question about ONE plausible scenario/object that commonly co-occur with visible feature(s) in the image but currently isn't present (the ground truth answer is always 'No').
 
 Requirements:
-Your generated hallucinated object, attribute or relation and the final adversarial question should be consistent with the context:
+1) Your generated hallucinated scenario/object and the final adversarial question should be also consistent with the context:
 background: {}, goal: {}
-Your generated hallucinated object, attribute or relation should not be present in the image but should be highly co-occur with image content.
-Your generated adversarial question should be consistent with the conversation history.
+2) Your generated hallucinated scenario/object should not be present in the image but should highly co-occur with image content.
+3) ENCOURAGED if possible: Include an inductive clause that briefly mentions 1 or 2 of the "co-occur_with" items as part of the existence question (e.g., "To help cut the cake on the table, is there a knife present?").
+4) **CRITICAL: Do NOT repeat or ask questions that are similar to any prior questions in the conversation history.**
 
-Now, please generate a plausible but absent or incorrect object, attribute or relation that commonly co-occur with visible ones in the image in the form of a json dict.
+
+Please output the hallucinated scenario/object as scene graph elements"names"/"attributes"/"relations", a list of up to 5 visible features it co-occurs with, and the corresponding question in the form of a json dict.
+
 Examples:
-If there is a blue banana on the table, you can ask about the color of the banana.
+If there is a blue banana on the table while banana should usually be yellow.
 ```json
-{{"names": "banana", "attributes": "blue"}},
+{{"names": "banana", "attributes": "yellow", "co-occur_with": "banana, yellow", "question": "Is there a yellow banana present on the table?"}}
 ```
-If there is cake on the table, you can ask whether there is a knife in the image.
+If there is cake on the table, which is usually accompanied by a knife but currently isn't.
 ```json
-{{"names": "knife"}},
+{{"names": "knife", "co-occur_with": "cake, table, plate", "question": "Is there a knife present on the table?"}}
 ```
-or the relation between the banana and the table.
-```json
-{{"names": "banana", "relations": "on the table"}},
-```
+
+Allowed keys in the JSON output are "names", "attributes", "relations", "co-occur_with", and "question".
 """
 
-ADVERSARIAL_CONV_PROMPT2 = \
-"""Now you should ask the adversarial question based on the generated hallucinated object, attribute or relation and the corresponding ground-truth answer.
-Please respond in the following format:
-```json
-{{"question": "xxxx", "gt": "xxxx"}},
-```
-You should ask a question as if you are having a conversation with the model. Please respond with the question and the ground-truth answer ONLY. DO NOT respond with anything else.
-"""
+# ADVERSARIAL_CONV_PROMPT2 = \
+# """Now you should ask a adversarial question based on the generated hallucinated scenario/object and the corresponding ground-truth answer.
+# Your generated adversarial question should try to flow naturally with the conversation history.
+# ENCOURAGED: Include an inductive clause that briefly mentions 1 or 2 of the "co-occur_with" items as part of the existence question (e.g., "Given the cake on the table, is there a knife present?").
+
+# Please respond in the following format:
+# ```json
+# {{"question": "xxxx", "gt": "No", "co-occur_with": "xxxx"}},
+# ```
+# Where gt is always 'No' (item is not present) and co-occur_with is the comma-separated list of visible features from the previous step.
+# You should ask a question as if you are having a conversation with the model. Please respond with the question and the ground-truth answer ONLY. DO NOT respond with anything else.
+# """
 
 UNANSWERABLE_CONV_PROMPT1 = \
 """Based on the given image, context, and conversation history, generate an **unanswerable question**.
 
+Here is the context:
+background: {}, goal: {}
 
 An *unanswerable question* refers to a query that cannot be answered using the provided information because it introduces a plausible but absent or incorrect object, attribute, or relation.
-For example, if the image shows only a cake on the table, ask *“What utensil is the man using to cut the cake?”* is unanswerableble since no man is present.
+For example, if the image shows only a cake on the table, asking *"What utensil is the man using to cut the cake?"* is unanswerable since no man is present.
 
 **Procedure:**
 
@@ -377,11 +384,11 @@ Hard Requirements (MUST follow):
 
 Good Unanswerable Question Templates (Examples):
 - Definite reference + attribute detail:
-  * {"question": "What color is the handle of the knife on the table?", "gt": "No knife is visible on the table in the image."}
+  * {"question": "What color is the handle of the knife on the table?"}
 - Definite reference + relation detail:
-  * {"question": "Which side of the cake is the fork placed on—left or right?", "gt": "No fork is visible near the cake in the image."}
+  * {"question": "Which side of the cake is the fork placed on—left or right?"}
 - Definite reference + human interaction detail (only if the image has no humans; this makes it unanswerable):
-  * {"question": "What utensil is the man using to cut the cake?", "gt": "No man is visible in the image cutting the cake."}
+  * {"question": "What utensil is the man using to cut the cake?"}
 
 Bad (DISALLOWED) Examples (these would overlap with ADVERSARIAL):
 - "Do you see any knife we could use?" (non-presuppositional)
@@ -390,10 +397,10 @@ Bad (DISALLOWED) Examples (these would overlap with ADVERSARIAL):
 Output Requirement:
 Respond in the following json format:
 ```json
-{"question": "xxxx", "gt": "xxxx"}
+{"question": "xxxx"}
 ```
 
-Respond with **the question and gt ONLY**. Do not include explanations, commentary, or any additional text.
+Respond with **the question ONLY**. Do not include explanations, commentary, or any additional text.
 """
 
 Q_TYPE_MAPPING = {
@@ -416,7 +423,7 @@ class EvalSample:
     def switch(self, conversations, swicth_history):
         conversations = copy.deepcopy(conversations)
         conversations.append(
-            {"role": "user", "content": SWITCH_PROMPT.format(asked_types=swicth_history)})
+            {"role": "user", "content": SWITCH_PROMPT.format(swicth_history)})
         type_id = self.llm_chat.chat(conversations, parse_json)['type']
         return type_id
     
@@ -447,6 +454,9 @@ class EvalSample:
         conversations.append({"role": "assistant", "content": message})
         conversations.append({"role": "user", "content": UNANSWERABLE_CONV_PROMPT3})
         message = self.llm_chat.chat(conversations, parse_json)
+        # Default gt to standard message for unanswerable questions
+        if "gt" not in message:
+            message["gt"] = "I can't answer the question because the object doesn't exist."
         meta_msg.append(message)
         return message, meta_msg
     
@@ -454,43 +464,94 @@ class EvalSample:
         conversations = copy.deepcopy(conversations)
         meta_msg = []
         conversations.append({"role": "user", "content": ADVERSARIAL_CONV_PROMPT1.format(context["background"], context["goal"])})
-        message = self.llm_chat.chat(conversations, None)
-        meta_msg.append(message)
-        conversations.append({"role": "assistant", "content": message})
-        conversations.append({"role": "user", "content": ADVERSARIAL_CONV_PROMPT2})
         message = self.llm_chat.chat(conversations, parse_json)
+        # Default gt to 'No' for adversarial questions
+        if "gt" not in message:
+            message["gt"] = "No"
         meta_msg.append(message)
         return message, meta_msg
     
     def generate_context(self, case):
         image_info = format_case_vg(case) if args.dataset == "vg" else format_case_coco(case)
         conversations = [
-            {"role": "system", "content": "You are a expert in generating realistic and diverse contexts for images. You excel at understanding the image content and predicting the possible scenarios and context in which the image might be situated."},
+            {"role": "system", "content": "You are an expert in generating realistic and diverse contexts for images. You excel at understanding the image content and predicting the possible scenarios and context in which the image might be situated."},
             {"role": "user", "content": CONTEXT_PROMPT.format(image_info).strip()}
         ]
         
         contexts = self.llm_chat.chat(conversations, parse_json)
 
         return contexts
+
+    def _parse_object_id(self, oid):
+        """Parse an object id that may be an int, a numeric string, or a string like 'instance 0'.
+        Returns an int or raises ValueError.
+        """
+        if isinstance(oid, int):
+            return oid
+        # try direct int conversion
+        try:
+            return int(oid)
+        except Exception:
+            pass
+        # try to extract first integer in the string
+        m = re.search(r"(\d+)", str(oid))
+        if m:
+            return int(m.group(1))
+        raise ValueError(f"Cannot parse object id: {oid}")
+
+    def _normalize_relevant_objects(self, raw):
+        """Normalize various formats of relevant_objects into a list of int ids.
+        Handles: list of ints/strings, a single string like "instance 0", or a comma/bracketed string.
+        """
+        ids = []
+        if raw is None:
+            return ids
+        if isinstance(raw, list):
+            for oid in raw:
+                try:
+                    ids.append(self._parse_object_id(oid))
+                except Exception:
+                    continue
+            return ids
+        # if it's a string, extract all integers
+        if isinstance(raw, str):
+            found = re.findall(r"\d+", raw)
+            return [int(x) for x in found]
+        # fallback: try parsing a single value
+        try:
+            return [self._parse_object_id(raw)]
+        except Exception:
+            return []
     
-    def select_context_nodes(self, context):
-        # let LLM select the object nodes that are most relevant to the context
-        # which will be used by the examiner to generate the question
-        background = context["background"]
-        goal = context["goal"]
-        conversations = [
-            {"role": "system", "content": SELECT_CONTEXT_NODES_PROMPT_SYSTEM},
-            {"role": "user", "content": SELECT_CONTEXT_NODES_PROMPT.format(self.scene_graph_data.image_info.sg, background, goal)}
-        ]
-        selected_nodes = self.llm_chat.chat(conversations, parse_json)
-        selected_object_nodes = [self.scene_graph_data.image_info.sg.get_object_by_id(int(oid)) for oid in selected_nodes]
-        return selected_object_nodes
+
+    # Node selection is now integrated into context generation; standalone selection removed.
     
+
     def run(self):
         to_save = []
-        contexts = self.generate_context(self.case)
-        for context in contexts:
-            selected_nodes = self.select_context_nodes(context)
+        # Retry context generation and parsing up to 3 times
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                contexts = self.generate_context(self.case)
+                # Validate context output
+                valid_contexts = []
+                for context in contexts:
+                    # Check if relevant_objects is a list of valid IDs
+                    relevant_objects = context.get("relevant_objects", [])
+                    if isinstance(relevant_objects, list) and all(isinstance(oid, (str, int)) for oid in relevant_objects):
+                        valid_contexts.append(context)
+                if not valid_contexts:
+                    raise ValueError("Context parsing error: No valid relevant_objects list.")
+                break
+            except Exception as e:
+                print(f"Context generation or parsing failed (attempt {attempt+1}/{max_retries}): {e}")
+                if attempt == max_retries - 1:
+                    print("Max retries reached. Skipping sample.")
+                    return to_save
+
+        for context in valid_contexts:
+            selected_nodes = [self.scene_graph_data.image_info.sg.get_object_by_id(int(oid)) for oid in context.get("relevant_objects", [])]
             print("-" * 50, f"context", "-" * 50)
             print(context)
             print("selected nodes: ", selected_nodes)
@@ -508,7 +569,7 @@ class EvalSample:
             #     ICLs.extend(icl["conversations"])
             
             conversations = [
-                {"role": "system", "content": CONV_SYSTEM_PROMPT.format(self.image_info, context["background"], context["goal"])},
+                {"role": "system", "content": CONV_SYSTEM_PROMPT.format(self.image_info, context["background"], context["goal"])}
             ]
             to_save_i = []
             switch_history = []
@@ -518,12 +579,9 @@ class EvalSample:
                     type_id = 1 # first round always ask regular question
                 else:
                     type_id = self.switch(conversations, switch_history)
-                
                 switch_history.append(type_id)
-                
                 if type_id == 5:
                     break
-                
                 if type_id == 1:
                     if len(selected_nodes) == 0:
                         continue
@@ -538,41 +596,35 @@ class EvalSample:
                 elif type_id == 4:
                     print("asking unanswerable question")
                     message_evaluator, una_meta_msg = self.ask_unanswerable(conversations, context)
-                
                 question = message_evaluator["question"]
                 gt = message_evaluator["gt"]
                 conversations.append({"role": "assistant", "content": question})
-            
                 image_file = self.case["image"]
                 output = eval_func(image_file=image_file, query=question)
                 output = output.lower()
                 conversations.append({"role": "user", "content": output})
-
                 print("-" * 50, f"round {r}", "-" * 50)
                 print(f"examiner question: {question}")
                 print(f"examiner gt: {gt}")
                 print(f"vlm model: {output}")
                 print("-" * 100)
-            
                 r += 1
                 saved_message = {"round_id": r, "prompt": question, "response":output, "q_type": Q_TYPE_MAPPING[type_id], "gt": gt}
                 if type_id == 3:
                     saved_message["meta_msg"] = adv_meta_msg
+                    saved_message["co-occur_with"] = message_evaluator.get("co-occur_with", "")
                 elif type_id == 4:
                     saved_message["meta_msg"] = una_meta_msg
-                to_save_i.append(
-                    saved_message
-                )
+                to_save_i.append(saved_message)
                 if r > args.max_rounds:
                     print("reached max rounds")
                     break
-            
             sample_to_save = copy.deepcopy(self.case)
             sample_to_save["conversations"] = to_save_i
             sample_to_save["context"] = context
+            sample_to_save["relevant_objects"] = context.get("relevant_objects", [])
             del sample_to_save["image"]
             to_save.append(sample_to_save)
-        
         return to_save
             
 

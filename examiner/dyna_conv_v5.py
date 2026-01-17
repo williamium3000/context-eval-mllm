@@ -467,7 +467,7 @@ if __name__ == "__main__":
     
     samples = load_data(args)
     
-    llm_chat = LLMChat(model_name="gpt-5")
+    llm_chat = LLMChat(model_name="gpt-5-nano")
     
     # Initialize cache and resume functionality
     to_save = []

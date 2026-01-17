@@ -12,19 +12,19 @@
 # mkdir -p slurm_logs
 # conda activate llava
 export PYTHONPATH=$PYTHONPATH:./:infer:grader/easydetect
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=2
 
-NUM_SAMPLES=5
-SAVE_DIR=work_dirs/vg/dyna_conv_v5_nano
-RUN_FILE=examiner/dyna_conv_v5.py
+NUM_SAMPLES=100
+SAVE_DIR=work_dirs/vg/final_run_v17_gpt5
+RUN_FILE=examiner/dyna_conv_v17.py
 # Initialize conda
 eval "$(conda shell.bash hook)"
 conda activate /raid/miniconda3/envs/qwenvl
 
-# python $RUN_FILE \
-#     --dataset vg --model_path llava-hf/llava-1.5-7b-hf  \
-#     --outfile $SAVE_DIR/llava-1.5-7b-hf.json \
-#     --num_samples $NUM_SAMPLES
+python $RUN_FILE \
+    --dataset vg --model_path llava-hf/llava-1.5-7b-hf  \
+    --outfile $SAVE_DIR/llava-1.5-7b-hf.json \
+    --num_samples $NUM_SAMPLES
 
 # python $RUN_FILE \
 #     --dataset vg --model_path llava-hf/llava-1.5-13b-hf  \
@@ -32,10 +32,10 @@ conda activate /raid/miniconda3/envs/qwenvl
 #     --num_samples $NUM_SAMPLES
 
 
-python $RUN_FILE \
-    --dataset vg --model_path Qwen/Qwen2.5-VL-3B-Instruct  \
-    --outfile $SAVE_DIR/Qwen2.5-VL-3B-Instruct.json \
-    --num_samples $NUM_SAMPLES
+# python $RUN_FILE \
+#     --dataset vg --model_path Qwen/Qwen2.5-VL-3B-Instruct  \
+#     --outfile $SAVE_DIR/Qwen2.5-VL-3B-Instruct.json \
+#     --num_samples $NUM_SAMPLES
 
 # python $RUN_FILE \
 #     --dataset vg --model_path Salesforce/blip2-flan-t5-xl  \
@@ -62,12 +62,13 @@ python $RUN_FILE \
 #     --num_samples $NUM_SAMPLES
 
 
-# conda activate work_dirs/envs/phi4
+# need env
 
 # python $RUN_FILE \
 #     --dataset vg --model_path OpenGVLab/InternVL3-8B-Instruct \
 #     --outfile $SAVE_DIR/InternVL3-8B-Instruct.json \
 #     --num_samples $NUM_SAMPLES
+
 
 # python $RUN_FILE \
 #     --dataset vg --model_path OpenGVLab/InternVL2_5-8B \
@@ -79,7 +80,9 @@ python $RUN_FILE \
 #     --outfile $SAVE_DIR/InternVL2-8B.json \
 #     --num_samples $NUM_SAMPLES
 
+# conda activate work_dirs/envs/phi4
 
+# # need env
 # python $RUN_FILE \
 #     --dataset vg --model_path microsoft/Phi-3.5-vision-instruct \
 #     --outfile $SAVE_DIR/Phi-3.5-vision-instruct.json \

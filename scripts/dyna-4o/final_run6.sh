@@ -12,11 +12,11 @@
 # mkdir -p slurm_logs
 # conda activate llava
 export PYTHONPATH=$PYTHONPATH:./:infer:grader/easydetect
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=4
 
-NUM_SAMPLES=5
-SAVE_DIR=work_dirs/vg/dyna_conv_v5_nano
-RUN_FILE=examiner/dyna_conv_v5.py
+NUM_SAMPLES=100
+SAVE_DIR=work_dirs/vg/final_run_v18_gpt4o
+RUN_FILE=examiner/dyna_conv_v18.py
 # Initialize conda
 eval "$(conda shell.bash hook)"
 conda activate /raid/miniconda3/envs/qwenvl
@@ -32,10 +32,10 @@ conda activate /raid/miniconda3/envs/qwenvl
 #     --num_samples $NUM_SAMPLES
 
 
-python $RUN_FILE \
-    --dataset vg --model_path Qwen/Qwen2.5-VL-3B-Instruct  \
-    --outfile $SAVE_DIR/Qwen2.5-VL-3B-Instruct.json \
-    --num_samples $NUM_SAMPLES
+# python $RUN_FILE \
+#     --dataset vg --model_path Qwen/Qwen2.5-VL-3B-Instruct  \
+#     --outfile $SAVE_DIR/Qwen2.5-VL-3B-Instruct.json \
+#     --num_samples $NUM_SAMPLES
 
 # python $RUN_FILE \
 #     --dataset vg --model_path Salesforce/blip2-flan-t5-xl  \
@@ -48,10 +48,10 @@ python $RUN_FILE \
 #     --num_samples $NUM_SAMPLES
 
 
-# python $RUN_FILE \
-#     --dataset vg --model_path Salesforce/instructblip-vicuna-7b \
-#     --outfile $SAVE_DIR/instructblip-vicuna-7b.json \
-#     --num_samples $NUM_SAMPLES
+python $RUN_FILE \
+    --dataset vg --model_path Salesforce/instructblip-vicuna-7b \
+    --outfile $SAVE_DIR/instructblip-vicuna-7b.json \
+    --num_samples $NUM_SAMPLES
 
 
 # conda activate work_dirs/envs/opera
@@ -85,7 +85,7 @@ python $RUN_FILE \
 #     --outfile $SAVE_DIR/Phi-3.5-vision-instruct.json \
 #     --num_samples $NUM_SAMPLES
 
-
+# need env
 # python $RUN_FILE \
 #     --dataset vg --model_path data/checkpoints/idefics2-8b-lpoi-list5-10k/final \
 #     --outfile $SAVE_DIR/idefics2-8b-lpoi-list5-10k.json \

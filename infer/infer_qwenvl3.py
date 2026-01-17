@@ -52,7 +52,8 @@ if __name__ == "__main__":
     parser.add_argument('--model_path', type=str, default="Qwen/Qwen3-VL-30B-A3B-Instruct")
     args = parser.parse_args()
     model = Qwen3VLMoeForConditionalGeneration.from_pretrained(
-        "Qwen/Qwen3-VL-30B-A3B-Instruct", dtype="auto", device_map="auto"
+        args.model_path, dtype="auto", device_map="auto",
+        trust_remote_code=True
     )
 
     # We recommend enabling flash_attention_2 for better acceleration and memory saving, especially in multi-image and video scenarios.
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     # )
 
     # default processer
-    processor = AutoProcessor.from_pretrained("Qwen/Qwen3-VL-30B-A3B-Instruct")
+    processor = AutoProcessor.from_pretrained(args.model_path)
 
     
     # format:

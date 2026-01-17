@@ -1,3 +1,16 @@
+# v10adversial changes
+
+# by changing output format in ADVERSARIAL_CONV_PROMPT1 and later answer parsing the storing
+# 1)
+# store 1 more meta data for adversial: "co-occur_with"
+# that stores (list under 5 even if more) comma seperated visible feature(s) in the image that it co-occur with
+
+# 2)
+# also be clear that it's a exsit or not, present or no question, that gt would always be 'No'
+# 3)
+# encourage a inductive clause that breifly mention 1/2 of the "co-occur_with" items as part of the exsit or not question
+
+
 from utils.utils import load_data
 from utils.vg import format_case_vg
 from utils.coco import format_case_coco
@@ -117,55 +130,26 @@ Please select the object nodes that are most relevant to the context in the orde
 
 
 SWITCH_PROMPT = \
-"""You are deciding what QUESTION TYPE to ask NEXT in a multi-turn conversation about an image, with a given context (background + goal). 
-You MUST choose exactly ONE of the following 5 types:
+"""Based on the given conversation history, please decide which type of question to ask next. Please choose one of the following types of questions:
 
 1. **Regular questions** – directly related to the image and context.
    *Example*: In an office setting, the goal of the conversation is to send an email to his boss. you can ask questions like "is the monitor turned on?", "where is the power button of the computer?", "I want to type in the email, what should I look for?" etc.
+
 2. **Follow-up questions** – follow up, confirm or interrogate the model’s last response.
+
 3. **Adversarial questions** – inquire about plausible but absent objects that commonly co-occur with visible ones in the image.
    *Example*: If the image shows a cake without utensils, you may ask: *“Can I use the knife on the table to cut the cake?”* or *"Is there a folk?"*
+
 4. **Unanswerable questions** – ask about question that cannot be answered.
    *Example*: if the image depicts a cake on the table without any utensil or people eating the cake, you can ask "What utensil is the man using to cut the cake?". This is an unanswerable question because you cannot answer with an utensil but rather you should answer "There are not any man in the image eating the cake".
+
 5. **End the conversation** – output "END" to end the conversation.
 
-Here previously asked question types (in order): {asked_types}.
+Given previous asked question types: {}, try to ask a diverse types of questions.
 
-========================
-CORE DECISION RULES
-========================
-
-A) Prefer NATURAL FLOW over forced diversity.
-- Aim for diversity across types, but do NOT pick a type that feels unnatural or unjustified by the current dialogue state and image/context.
-
-B) Follow-up is preferred when the last exchange suggests it.
-Choose type 2 (Follow-up) if ANY of the following is true:
-- The last answer is vague, incomplete, or hedged (e.g., “maybe”, “not sure”, “seems like”).
-- The last question/answer involves an object with many visible details that were not asked yet (color, count, location, state, relation).
-- The last answer mentioned multiple entities and you can drill down on one.
-- There is an inconsistency or potential hallucination risk in the last answer that can be probed without revealing metadata.
-- The user’s goal is mid-progress and a clarification would naturally come next.
-
-C) End the conversation (type 5) only when it is genuinely done.
-Choose type 5 if:
-- The conversation has covered the key context/goal sufficiently, OR
-- No more grounded, non-redundant questions remain, OR
-- Continuing would become repetitive or forced.
-
-========================
-DIVERSITY GUIDANCE (SOFT)
-========================
-- Given the previous asked question types (in order), you should ask a type that's diverse from the previous asked question types.
-- However, DON'T enforce diversity too much and DON'T pick a type that feels unnatural or unjustified by the current dialogue state and image/context, we prefer NATURAL FLOW over forced diversity.
-- Avoid repeating the same type too many times in a row unless it is clearly the most natural choice.
-- If multiple types are equally natural, prefer a type that increases diversity relative to previous asked question types.
-
-========================
-OUTPUT FORMAT (STRICT)
-========================
-YOU CAN ONLY SELECT ONE OF THE ABOVE FIVE TYPES OF QUESTIONS.
+YOU CAN ONLY SELECT ONE OF THE ABOVE FIVE TYPES OF QUESTIONS !!
 Respond format: you can explain, reason or perform chain-of-thought to select the next question type. 
-However, you MUST provide a digit between 1 and 4 to indicate the next question type:
+However, you MUST eventually provide a digit between 1 and 4 to indicate the next question type:
 ```json
 {{"type": type_id}}
 ```
@@ -262,43 +246,48 @@ Please respond with the question and the ground-truth answer ONLY. DO NOT respon
 """
 
 ADVERSARIAL_CONV_PROMPT1 = \
-"""Based on the given image, context, and the conversation history, please ask an adversarial question about a plausible but absent object, attribute or relation that commonly co-occur with visible ones in the image.
-Follow the procedure: first generate a plausible but absent or incorrect object, attribute or relation that commonly co-occur with visible ones in the image in the form of a json dict, then ask the adversarial question based on the generated hallucinated object, attribute or relation.
+"""Based on the given image, context, and the conversation history, please ask an existence/present adversarial question about ONE plausible scenario/object that commonly co-occur with visible feature(s) in the image but currently isn't present (the ground truth answer is always 'No').
 
 Requirements:
-Your generated hallucinated object, attribute or relation and the final adversarial question should be consistent with the context:
+1) Your generated hallucinated scenario/object and the final adversarial question should be also consistent with the context:
 background: {}, goal: {}
-Your generated hallucinated object, attribute or relation should not be present in the image but should be highly co-occur with image content.
-Your generated adversarial question should be consistent with the conversation history.
+2) Your generated hallucinated scenario/object should not be present in the image but should be highly co-occur with image content.
+3)ENCOURAGED if possible: Include an inductive clause that briefly mentions 1 or 2 of the "co-occur_with" items as part of the existence question (e.g., "To help cut the cake on the table, is there a knife present?").
 
-Now, please generate a plausible but absent or incorrect object, attribute or relation that commonly co-occur with visible ones in the image in the form of a json dict.
+
+Please output the hallucinated scenario/object as scene graph elements"names"/"attributes"/"relations", a list of up to 5 visible features it co-occurs with, and the corresponding question AND ground-truth answer in the form of a json dict.
+
 Examples:
-If there is a blue banana on the table, you can ask about the color of the banana.
+If there is a blue banana on the table while banana should usually be yellow.
 ```json
-{{"names": "banana", "attributes": "blue"}},
+{{"names": "banana", "attributes": "yellow", "co-occur_with": "banana, yellow", "question": "Is there a yellow banana present on the table?", "gt": "No"}},
 ```
-If there is cake on the table, you can ask whether there is a knife in the image.
+If there is cake on the table, which is usually accompanied by a knife but currently isn't.
 ```json
-{{"names": "knife"}},
+{{"names": "knife", "co-occur_with": "cake, table, plate", "question": "Is there a knife present on the table?", "gt": "No"}}
 ```
-or the relation between the banana and the table.
-```json
-{{"names": "banana", "relations": "on the table"}},
-```
+
+Allowed keys in the JSON output are "names", "attributes", "relations", "co-occur_with", "question", and "gt".
 """
 
-ADVERSARIAL_CONV_PROMPT2 = \
-"""Now you should ask the adversarial question based on the generated hallucinated object, attribute or relation and the corresponding ground-truth answer.
-Please respond in the following format:
-```json
-{{"question": "xxxx", "gt": "xxxx"}},
-```
-You should ask a question as if you are having a conversation with the model. Please respond with the question and the ground-truth answer ONLY. DO NOT respond with anything else.
-"""
+# ADVERSARIAL_CONV_PROMPT2 = \
+# """Now you should ask a adversarial question based on the generated hallucinated scenario/object and the corresponding ground-truth answer.
+# Your generated adversarial question should try to flow naturally with the conversation history.
+# ENCOURAGED: Include an inductive clause that briefly mentions 1 or 2 of the "co-occur_with" items as part of the existence question (e.g., "Given the cake on the table, is there a knife present?").
+
+# Please respond in the following format:
+# ```json
+# {{"question": "xxxx", "gt": "No", "co-occur_with": "xxxx"}},
+# ```
+# Where gt is always 'No' (item is not present) and co-occur_with is the comma-separated list of visible features from the previous step.
+# You should ask a question as if you are having a conversation with the model. Please respond with the question and the ground-truth answer ONLY. DO NOT respond with anything else.
+# """
 
 UNANSWERABLE_CONV_PROMPT1 = \
 """Based on the given image, context, and conversation history, generate an **unanswerable question**.
 
+Here is the context:
+background: {}, goal: {}
 
 An *unanswerable question* refers to a query that cannot be answered using the provided information because it introduces a plausible but absent or incorrect object, attribute, or relation.
 For example, if the image shows only a cake on the table, ask *“What utensil is the man using to cut the cake?”* is unanswerableble since no man is present.
@@ -416,7 +405,7 @@ class EvalSample:
     def switch(self, conversations, swicth_history):
         conversations = copy.deepcopy(conversations)
         conversations.append(
-            {"role": "user", "content": SWITCH_PROMPT.format(asked_types=swicth_history)})
+            {"role": "user", "content": SWITCH_PROMPT.format(swicth_history)})
         type_id = self.llm_chat.chat(conversations, parse_json)['type']
         return type_id
     
@@ -454,10 +443,6 @@ class EvalSample:
         conversations = copy.deepcopy(conversations)
         meta_msg = []
         conversations.append({"role": "user", "content": ADVERSARIAL_CONV_PROMPT1.format(context["background"], context["goal"])})
-        message = self.llm_chat.chat(conversations, None)
-        meta_msg.append(message)
-        conversations.append({"role": "assistant", "content": message})
-        conversations.append({"role": "user", "content": ADVERSARIAL_CONV_PROMPT2})
         message = self.llm_chat.chat(conversations, parse_json)
         meta_msg.append(message)
         return message, meta_msg
@@ -558,6 +543,7 @@ class EvalSample:
                 saved_message = {"round_id": r, "prompt": question, "response":output, "q_type": Q_TYPE_MAPPING[type_id], "gt": gt}
                 if type_id == 3:
                     saved_message["meta_msg"] = adv_meta_msg
+                    saved_message["co-occur_with"] = message_evaluator.get("co-occur_with", "")
                 elif type_id == 4:
                     saved_message["meta_msg"] = una_meta_msg
                 to_save_i.append(
